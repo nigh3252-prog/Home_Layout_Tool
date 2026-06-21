@@ -13,6 +13,9 @@ input,select,textarea{font-family:inherit}
 .row{display:flex;align-items:center;gap:2px}
 .bar{display:flex;align-items:center;gap:2px;padding:5px 10px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap}
 .sub{display:flex;gap:4px;padding:5px 10px;background:var(--bg3);border-bottom:1px solid var(--bdr);flex-wrap:wrap;flex-shrink:0;align-items:center}
+.mode-label{color:var(--dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:4px;white-space:nowrap}
+.mode-btn{font-weight:600}
+.context-bar{min-height:43px}
 .btn{background:transparent;border:1px solid transparent;color:var(--mut);padding:4px 8px;border-radius:4px;font-size:12px;white-space:nowrap}
 .btn.on{background:#334155;border-color:#475569;color:var(--acc)}
 .sbtn{background:transparent;border:1px solid var(--bdr);color:var(--mut);padding:4px 10px;border-radius:4px;font-size:12px}
@@ -130,6 +133,7 @@ let S={
   circuits:[{id:"c1",name:"Circuit 1",color:CCOL[0],amp:"15A"}],
   activeCircuitId:"c1",
   tool:"select",
+  mode:"select",
   pan:{x:0,y:0}, zoom:1,
   showGrid:true,
   scaleUnit:"ft", pxPerFt:20,
@@ -480,14 +484,14 @@ document.addEventListener("keydown",e=>{
       commitUndo();render();return;
     }
   }
-  if(e.key==="Escape"){S.selectedId=null;S.tool="select";S.selectedPreset=null;wirePoints=[];calLine=null;calDrawing=false;render()}
+  if(e.key==="Escape"){S.selectedId=null;S.tool="select";S.mode="select";S.selectedPreset=null;wirePoints=[];calLine=null;calDrawing=false;render()}
   const km={v:"select",r:"rect",l:"line",t:"text",o:"ellipse",g:null};
-  if(e.key==="v")S.tool="select";
-  if(e.key==="r")S.tool="rect";
-  if(e.key==="l")S.tool="line";
-  if(e.key==="t")S.tool="text";
-  if(e.key==="o")S.tool="ellipse";
-  if(e.key==="w"){S.tool="wire";wirePoints=[]}
+  if(e.key==="v"){S.tool="select";S.mode="select"}
+  if(e.key==="r"){S.tool="rect";S.mode="draw"}
+  if(e.key==="l"){S.tool="line";S.mode="draw"}
+  if(e.key==="t"){S.tool="text";S.mode="draw"}
+  if(e.key==="o"){S.tool="ellipse";S.mode="draw"}
+  if(e.key==="w"){S.tool="wire";S.mode="electrical";wirePoints=[]}
   if(e.key==="g"){S.showGrid=!S.showGrid}
   if(e.key==="ArrowUp"&&!S.selectedId){e.preventDefault();cycleGridUp();return}
   if(e.key==="ArrowDown"&&!S.selectedId){e.preventDefault();cycleGridDown();return}
@@ -518,7 +522,7 @@ function renderTabs(){
   el.innerHTML=S.pages.map(p=>`<button class="${p.id===S.activePageId?"active":""}" onclick="switchPage('${p.id}')">${p.name}</button>`).join("")+`<button onclick="addPagePrompt()" style="font-size:16px;color:var(--dim)">+</button>`;
 }
 
-function renderToolbar(){
+function renderLegacyToolbar(){
   const el=document.getElementById("toolbar");
   const tb=(id,label,icon,key)=>`<button class="btn ${S.tool===id?'on':''}" onclick="setTool('${id}')" title="${key?label+' ('+key+')':label}">${icon} ${label}</button>`;
   el.innerHTML=`
@@ -552,7 +556,7 @@ function renderToolbar(){
   `;
 }
 
-function renderSubbar(){
+function renderLegacySubbar(){
   const el=document.getElementById("subbar");let h="";
   if(S.showPresets){
     const cats=Object.keys(PRESETS);
@@ -588,6 +592,85 @@ function renderSubbar(){
     </div>`;
   }
   el.innerHTML=h;
+}
+
+function renderToolbar(){
+  const el=document.getElementById("toolbar");
+  const modeButton=(id,label,icon)=>`<button class="btn mode-btn ${S.mode===id?'on':''}" onclick="setMode('${id}')">${icon} ${label}</button>`;
+  el.innerHTML=`
+    <span style="font-weight:700;font-size:14px;margin-right:8px;color:var(--acc);letter-spacing:1px">⌂ LAYOUT</span>
+    <button class="btn" onclick="doUndo()" title="Undo (Ctrl+Z)" style="opacity:${history.length?1:.3};font-size:14px;padding:2px 6px">↩</button>
+    <button class="btn" onclick="doRedo()" title="Redo (Ctrl+Y)" style="opacity:${future.length?1:.3};font-size:14px;padding:2px 6px">↪</button>
+    <span class="sep"></span>
+    ${modeButton("select","Select","↖")}
+    ${modeButton("draw","Draw","✏️")}
+    ${modeButton("furniture","Furniture","🛋️")}
+    ${modeButton("electrical","Electrical","⚡")}
+    ${modeButton("background","Background","🖼️")}
+    ${modeButton("scale","Scale","📏")}
+    ${modeButton("file","File","💾")}
+  `;
+}
+
+function renderSubbar(){
+  const el=document.getElementById("subbar");
+  const toolButton=(id,label,icon,key="")=>`<button class="btn ${S.tool===id?'on':''}" onclick="setTool('${id}')" title="${key?label+' ('+key+')':label}">${icon} ${label}</button>`;
+  let h=`<div class="sub context-bar"><span class="mode-label">${S.mode}</span>`;
+
+  if(S.mode==="select"){
+    h+=toolButton("select","Select","↖","V");
+    h+=`<button class="btn ${S.showBuffer?'on':''}" style="color:${S.showBuffer?'var(--grn)':'var(--mut)'}" onclick="S.showBuffer=!S.showBuffer;render()">↔ Buffer</button>`;
+    if(S.showBuffer)h+=`<input type="range" min="1" max="24" value="${S.bufferIn}" oninput="S.bufferIn=+this.value;render()" style="width:70px"><span style="font-size:10px;color:var(--mut)">${S.bufferIn}"</span>`;
+    h+=`<button class="btn ${S.showGrid?'on':''}" onclick="S.showGrid=!S.showGrid;render()" title="Grid (G)"># Grid</button>`;
+  }else if(S.mode==="draw"){
+    h+=toolButton("rect","Rectangle","□","R");
+    h+=toolButton("ellipse","Ellipse","○","O");
+    h+=toolButton("line","Line","╱","L");
+    h+=toolButton("text","Text","A","T");
+  }else if(S.mode==="furniture"){
+    const cats=Object.keys(PRESETS);
+    for(const c of cats)h+=`<button class="btn ${S.presetCat===c?'on':''}" onclick="S.presetCat='${c}';S.selectedPreset=null;render()" style="font-size:11px">${c}</button>`;
+    h+=`<span class="sep"></span>`;
+    for(let pi=0;pi<PRESETS[S.presetCat].length;pi++){
+      const p=PRESETS[S.presetCat][pi];
+      h+=`<button class="btn ${S.selectedPreset?.l===p.l?'on':''}" onclick="pickPresetIdx(${pi})">${p.i} ${p.l}</button>`;
+    }
+  }else if(S.mode==="electrical"){
+    h+=toolButton("wire","Wire","⚡","W");
+    h+=toolButton("node","Node","◉");
+    h+=`<span class="sep"></span>`;
+    for(const c of S.circuits)h+=`<button class="btn ${S.activeCircuitId===c.id?'on':''}" style="border-color:${c.color};color:${S.activeCircuitId===c.id?c.color:'var(--mut)'}" onclick="S.activeCircuitId='${c.id}';render()">● ${c.name} (${c.amp})</button>`;
+    h+=`<button class="sbtn" style="font-size:11px" onclick="addCircuit()">+ Circuit</button>`;
+  }else if(S.mode==="background"){
+    h+=`<label class="sbtn" style="cursor:pointer">🖼️ Upload<input type="file" accept="image/*" onchange="uploadBg(event)" style="display:none"></label>
+      <button class="sbtn" onclick="alert('Copy an image, then Ctrl+V anywhere in the app.')">📋 Paste</button>
+      <button class="btn ${S.tool==='__cal'?'on':''}" style="${S.tool==='__cal'?'color:#ff6b6b;border-color:#ff6b6b':''}" onclick="toggleCal()" title="Draw on known distance to calibrate">🎯 Calibrate</button>`;
+    if(bgImages[S.activePageId])h+=`<span class="mode-label">Opacity</span><input type="range" min="0" max="1" step=".05" value="${activePage().bgOpacity}" oninput="activePage().bgOpacity=+this.value;draw()" style="width:90px"><span class="mode-label">Size</span><input type="range" min=".05" max="5" step=".05" value="${activePage().bgScale}" oninput="activePage().bgScale=+this.value;draw()" style="width:90px">`;
+  }else if(S.mode==="scale"){
+    h+=`
+      <button class="btn ${S.scaleUnit==='ft'?'on':''}" onclick="changeScale('ft',S.pxPerFt)">Feet</button>
+      <button class="btn ${S.scaleUnit==='in'?'on':''}" onclick="changeScale('in',S.pxPerFt)">Inches</button>
+      <span class="sep"></span>
+      <button class="btn" onclick="cycleGridDown()" title="Coarser grid (↓)">−</button>
+      <span style="font-size:11px;color:var(--acc);min-width:45px;text-align:center">${S.scaleUnit==="ft"?"1'":"1\""}</span>
+      <button class="btn" onclick="cycleGridUp()" title="Finer grid (↑)">+</button>
+      <input type="range" min="5" max="100" value="${S.pxPerFt}" oninput="changeScale(S.scaleUnit,+this.value)" style="width:90px">
+      <span style="color:var(--mut);font-size:11px;width:24px">${S.pxPerFt}</span>
+      <span class="sep"></span>
+      <button class="sbtn" onclick="changeScale('ft',20)">Room</button>
+      <button class="sbtn" onclick="changeScale('in',60)">Detail</button>
+      <button class="sbtn" onclick="changeScale('ft',8)">House</button>
+      <span class="sep"></span>
+      <button class="sbtn" onclick="setGridOriginFromSelected()" title="Set grid origin to selected item's corner">Anchor</button>
+      <button class="sbtn" onclick="S.gridOrigin={x:0,y:0};render()">Reset</button>`;
+  }else if(S.mode==="file"){
+    h+=`<button class="sbtn" onclick="showImportModal()">📋 Import</button>
+      <label class="sbtn" style="cursor:pointer">📂 Load<input type="file" accept=".json" onchange="loadJSON(event)" style="display:none"></label>
+      <button class="sbtn" onclick="saveJSON()">💾 Save JSON</button>
+      <button class="sbtn" onclick="exportPDF()">📄 Export PDF</button>
+      <button class="sbtn" onclick="showHelpModal()">? Help</button>`;
+  }
+  el.innerHTML=h+`</div>`;
 }
 
 function renderHint(){
@@ -687,10 +770,27 @@ function renderProps(){
 // ═══════════════════════════════════════
 //  ACTIONS
 // ═══════════════════════════════════════
-function setTool(t){S.tool=t;S.selectedPreset=null;if(t==="wire")wirePoints=[];calLine=null;render()}
-function toggleCal(){if(S.tool==="__cal"){S.tool="select";calLine=null}else{S.tool="__cal";calLine=null}render()}
-function pickPreset(label){const cat=PRESETS[S.presetCat];const p=cat.find(x=>x.l===label);S.selectedPreset=p;S.tool="preset";render()}
-function pickPresetIdx(idx){S.selectedPreset=PRESETS[S.presetCat][idx];S.tool="preset";render()}
+function setMode(mode){
+  S.mode=mode;
+  S.selectedPreset=null;
+  calLine=null;
+  if(mode==="select")S.tool="select";
+  else if(mode==="draw"&&!["rect","ellipse","line","text"].includes(S.tool))S.tool="rect";
+  else if(mode==="electrical"&&!["wire","node"].includes(S.tool))S.tool="wire";
+  else if(mode==="background"&&S.tool!=="__cal")S.tool="select";
+  else if(["scale","file"].includes(mode))S.tool="select";
+  render();
+}
+function setTool(t){
+  S.tool=t;S.selectedPreset=null;if(t==="wire")wirePoints=[];calLine=null;
+  if(t==="select")S.mode="select";
+  else if(["rect","ellipse","line","text"].includes(t))S.mode="draw";
+  else if(["wire","node"].includes(t))S.mode="electrical";
+  render();
+}
+function toggleCal(){S.mode="background";if(S.tool==="__cal"){S.tool="select";calLine=null}else{S.tool="__cal";calLine=null}render()}
+function pickPreset(label){const cat=PRESETS[S.presetCat];const p=cat.find(x=>x.l===label);S.selectedPreset=p;S.tool="preset";S.mode="furniture";render()}
+function pickPresetIdx(idx){S.selectedPreset=PRESETS[S.presetCat][idx];S.tool="preset";S.mode="furniture";render()}
 function switchPage(id){if(id===S.activePageId)return;pageStore[S.activePageId]={layers:S.layers};S.activePageId=id;S.layers=pageStore[id]?.layers||makeLayers();lastSnap=null;history=[];future=[];render()}
 function addPagePrompt(){const n=prompt("Page name:","New Page");if(!n)return;pageStore[S.activePageId]={layers:S.layers};const pg={id:"p_"+uid(),name:n,bgSrc:null,bgOpacity:.5,bgScale:1};S.pages.push(pg);S.activePageId=pg.id;S.layers=makeLayers();lastSnap=null;history=[];future=[];render()}
 function addLayerPrompt(){const n=prompt("Layer name:");if(!n)return;S.layers.push({id:"l_"+uid(),name:n,visible:true,locked:false,color:"#10b981",items:[]});render()}
