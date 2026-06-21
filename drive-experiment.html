@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Layout Tool - Drive Sync Experiment</title>
+<style>
+  body{margin:0;background:#0c1222;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px}
+  .card{max-width:720px;background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+  h1{font-size:20px;margin:0 0 8px;color:#22d3ee}.muted{color:#94a3b8;line-height:1.5;font-size:14px}.err{color:#fca5a5;white-space:pre-wrap;background:#450a0a55;border:1px solid #7f1d1d;border-radius:8px;padding:12px;margin-top:14px}.pill{display:inline-block;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin-top:10px;color:#94a3b8;font-size:12px}
+</style>
+</head>
+<body>
+<div class="card" id="loader">
+  <h1>Loading Drive sync experiment…</h1>
+  <div class="muted">This preview loads the normal Home Layout Tool from this branch, then adds experimental Google Drive JSON save/load buttons to File mode. The original <code>index.html</code> on this branch is not rewritten by this preview page.</div>
+  <div class="pill">Branch: drive-sync-experiment</div>
+</div>
+<script type="text/plain" id="drive-addon-code">
+// ═══════════════════════════════════════
+//  EXPERIMENTAL GOOGLE DRIVE JSON SYNC ADD-ON
+//  This add-on is intentionally additive: localStorage autosave and local JSON export/import remain unchanged.
+// ═══════════════════════════════════════
+const HLT_DRIVE={
+  clientId:localStorage.getItem("hltDriveClientId")||"",
+  folderName:localStorage.getItem("hltDriveFolderName")||"Home Layout Tool",
+  folderId:localStorage.getItem("hltDriveFolderId")||"",
+  currentFileId:localStorage.getItem("hltDriveCurrentFileId")||"",
+  currentFileName:localStorage.getItem("hltDriveCurrentFileName")||"",
+  token:null,
+  tokenExpiresAt:0,
+  lastList:[],
+  scope:"https://www.googleapis.com/auth/drive.file"
+};
+function initDriveAddon(){
+  const baseRenderSubbar=renderSubbar;
+  renderSubbar=function(){
+    baseRenderSubbar();
+    if(S.mode==="file")hltDriveDecorateFileBar();
+  };
+}
+function hltDriveDecorateFileBar(){
+  const bar=document.querySelector("#subbar .sub");
+  if(!bar||bar.dataset.driveAddon)return;
+  bar.dataset.driveAddon="1";
+  bar.insertAdjacentHTML("beforeend",`
+    <span class="sep"></span>
+    <button class="sbtn" onclick="hltDriveSetup()" title="Set Google OAuth Client ID and Drive folder name">☁️ Drive Setup</button>
+    <button class="sbtn" onclick="hltDriveConnect()">Connect Drive</button>
+    <button class="sbtn" onclick="hltDriveOpenModal()">Open Drive</button>
+    <button class="sbtn" onclick="hltDriveSaveCurrent()">Save Drive</button>
+    <button class="sbtn" onclick="hltDriveSaveAs()">Save As Drive</button>
+    <span id="driveStatus" style="font-size:10px;color:var(--dim);white-space:nowrap;margin-left:4px">${hltDriveStatusText()}</span>
+  `);
+}
+function hltDriveStatusText(){
+  const bits=[];
+  bits.push(HLT_DRIVE.clientId?"OAuth set":"OAuth needed");
+  bits.push("Folder: "+(HLT_DRIVE.folderName||"Home Layout Tool"));
+  if(HLT_DRIVE.currentFileName)bits.push("File: "+HLT_DRIVE.currentFileName);
+  return bits.join(" · ");
+}
+function hltDriveRefreshStatus(){const el=document.getElementById("driveStatus");if(el)el.textContent=hltDriveStatusText();}
+function hltDriveSetup(){
+  const id=prompt("Paste your Google OAuth Web Client ID.\n\nLeave blank to keep the current value.",HLT_DRIVE.clientId||"");
+  if(id!==null&&id.trim()){HLT_DRIVE.clientId=id.trim();localStorage.setItem("hltDriveClientId",HLT_DRIVE.clientId)}
+  const folder=prompt("Drive folder name to use for layout JSON files:",HLT_DRIVE.folderName||"Home Layout Tool");
+  if(folder!==null&&folder.trim()){
+    HLT_DRIVE.folderName=folder.trim();localStorage.setItem("hltDriveFolderName",HLT_DRIVE.folderName);
+    HLT_DRIVE.folderId="";localStorage.removeItem("hltDriveFolderId");
+  }
+  hltDriveRefreshStatus();
+}
+function hltDriveLoadGis(){
+  return new Promise((resolve,reject)=>{
+    if(window.google?.accounts?.oauth2)return resolve();
+    const old=document.getElementById("gis-client");
+    if(old){old.addEventListener("load",()=>resolve(),{once:true});old.addEventListener("error",()=>reject(new Error("Google Identity Services failed to load")),{once:true});return;}
+    const s=document.createElement("script");s.id="gis-client";s.src="https://accounts.google.com/gsi/client";s.async=true;s.defer=true;
+    s.onload=()=>resolve();s.onerror=()=>reject(new Error("Google Identity Services failed to load"));document.head.appendChild(s);
+  });
+}
+async function hltDriveEnsureToken(){
+  if(HLT_DRIVE.token&&Date.now()<HLT_DRIVE.tokenExpiresAt)return HLT_DRIVE.token;
+  if(!HLT_DRIVE.clientId){hltDriveSetup();if(!HLT_DRIVE.clientId)throw new Error("Drive OAuth Client ID is required before connecting.")}
+  await hltDriveLoadGis();
+  return new Promise((resolve,reject)=>{
+    const tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:HLT_DRIVE.clientId,
+      scope:HLT_DRIVE.scope,
+      callback:(resp)=>{
+        if(resp.error)return reject(new Error(resp.error_description||resp.error));
+        HLT_DRIVE.token=resp.access_token;
+        HLT_DRIVE.tokenExpiresAt=Date.now()+Math.max(60000,((resp.expires_in||3600)-60)*1000);
+        resolve(HLT_DRIVE.token);
+      }
+    });
+    tokenClient.requestAccessToken({prompt:"consent"});
+  });
+}
+async function hltDriveConnect(){
+  try{await hltDriveEnsureToken();await hltDriveEnsureFolder();alert("Drive connected. Folder: "+HLT_DRIVE.folderName);hltDriveRefreshStatus();}
+  catch(err){hltDriveShowError(err)}
+}
+function hltDriveEscapeQueryName(name){return String(name).replace(/\\/g,"\\\\").replace(/'/g,"\\'");}
+async function hltDriveApi(path,opts={}){
+  const token=await hltDriveEnsureToken();
+  const headers=Object.assign({Authorization:"Bearer "+token},opts.headers||{});
+  const res=await fetch("https://www.googleapis.com/drive/v3/"+path,Object.assign({},opts,{headers}));
+  if(!res.ok)throw new Error(await res.text());
+  return res.status===204?null:res.json();
+}
+async function hltDriveUpload(path,opts={}){
+  const token=await hltDriveEnsureToken();
+  const headers=Object.assign({Authorization:"Bearer "+token},opts.headers||{});
+  const res=await fetch("https://www.googleapis.com/upload/drive/v3/"+path,Object.assign({},opts,{headers}));
+  if(!res.ok)throw new Error(await res.text());
+  return res.json();
+}
+async function hltDriveEnsureFolder(){
+  if(HLT_DRIVE.folderId)return HLT_DRIVE.folderId;
+  const folderName=HLT_DRIVE.folderName||"Home Layout Tool";
+  const q=`mimeType='application/vnd.google-apps.folder' and name='${hltDriveEscapeQueryName(folderName)}' and trashed=false`;
+  const found=await hltDriveApi("files?spaces=drive&fields=files(id,name)&q="+encodeURIComponent(q));
+  if(found.files&&found.files.length){
+    HLT_DRIVE.folderId=found.files[0].id;
+  }else{
+    const created=await hltDriveApi("files?fields=id,name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:folderName,mimeType:"application/vnd.google-apps.folder"})});
+    HLT_DRIVE.folderId=created.id;
+  }
+  localStorage.setItem("hltDriveFolderId",HLT_DRIVE.folderId);
+  return HLT_DRIVE.folderId;
+}
+async function hltDriveListLayouts(){
+  const folderId=await hltDriveEnsureFolder();
+  const q=`'${folderId}' in parents and trashed=false and name contains '.json'`;
+  const data=await hltDriveApi("files?spaces=drive&orderBy=modifiedTime desc&fields=files(id,name,modifiedTime,size)&q="+encodeURIComponent(q));
+  HLT_DRIVE.lastList=data.files||[];
+  return HLT_DRIVE.lastList;
+}
+function hltDriveShowError(err){
+  console.error(err);
+  alert("Drive experiment error:\n\n"+(err?.message||err));
+}
+async function hltDriveOpenModal(){
+  try{
+    const files=await hltDriveListLayouts();
+    const d=document.createElement("div");d.className="modal-bg";d.onclick=e=>{if(e.target===d)d.remove()};
+    const rows=files.length?files.map((f,i)=>`<button class="sbtn" style="text-align:left;padding:8px" onclick="hltDriveOpenByIndex(${i});this.closest('.modal-bg').remove()">📄 ${hltDriveHtml(f.name)}<br><span style="color:var(--dim);font-size:10px">${new Date(f.modifiedTime).toLocaleString()}</span></button>`).join(""):`<div style="color:var(--mut);font-size:12px">No .json layout files found yet in ${hltDriveHtml(HLT_DRIVE.folderName)}. Use Save As Drive first.</div>`;
+    d.innerHTML=`<div class="modal" style="width:520px" onclick="event.stopPropagation()"><h3>Open from Google Drive</h3><div style="display:flex;flex-direction:column;gap:6px">${rows}</div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="sbtn" onclick="this.closest('.modal-bg').remove()">Cancel</button><button class="mbtn" onclick="hltDriveSaveAs();this.closest('.modal-bg').remove()">Save New</button></div></div>`;
+    document.body.appendChild(d);
+  }catch(err){hltDriveShowError(err)}
+}
+function hltDriveHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+async function hltDriveOpenByIndex(i){
+  const f=HLT_DRIVE.lastList[i];if(!f)return;
+  try{
+    const token=await hltDriveEnsureToken();
+    const res=await fetch("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(f.id)+"?alt=media",{headers:{Authorization:"Bearer "+token}});
+    if(!res.ok)throw new Error(await res.text());
+    const data=JSON.parse(await res.text());
+    applyLoadedData(data,true);
+    HLT_DRIVE.currentFileId=f.id;HLT_DRIVE.currentFileName=f.name;
+    localStorage.setItem("hltDriveCurrentFileId",f.id);localStorage.setItem("hltDriveCurrentFileName",f.name);
+    render();alert("Loaded from Drive: "+f.name);
+  }catch(err){hltDriveShowError(err)}
+}
+function hltDriveJsonBody(){return JSON.stringify(getSaveData(),null,2)}
+async function hltDriveSaveCurrent(){
+  try{
+    if(!HLT_DRIVE.currentFileId)return hltDriveSaveAs();
+    const saved=await hltDriveUpload("files/"+encodeURIComponent(HLT_DRIVE.currentFileId)+"?uploadType=media&fields=id,name,modifiedTime",{method:"PATCH",headers:{"Content-Type":"application/json; charset=UTF-8"},body:hltDriveJsonBody()});
+    HLT_DRIVE.currentFileName=saved.name||HLT_DRIVE.currentFileName;
+    localStorage.setItem("hltDriveCurrentFileName",HLT_DRIVE.currentFileName);
+    hltDriveRefreshStatus();alert("Saved to Drive: "+HLT_DRIVE.currentFileName);
+  }catch(err){hltDriveShowError(err)}
+}
+async function hltDriveSaveAs(){
+  try{
+    const folderId=await hltDriveEnsureFolder();
+    let name=prompt("Save layout to Drive as:",HLT_DRIVE.currentFileName||activePage()?.name?.replace(/[^a-z0-9 _.-]/gi,"_")+".json"||"Home Layout.json");
+    if(!name)return;
+    name=name.trim();if(!/\.json$/i.test(name))name+=".json";
+    const boundary="-------hltDrive"+Date.now();
+    const metadata={name,mimeType:"application/json",parents:[folderId]};
+    const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${hltDriveJsonBody()}\r\n--${boundary}--`;
+    const created=await hltDriveUpload("files?uploadType=multipart&fields=id,name,modifiedTime",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+boundary},body});
+    HLT_DRIVE.currentFileId=created.id;HLT_DRIVE.currentFileName=created.name;
+    localStorage.setItem("hltDriveCurrentFileId",created.id);localStorage.setItem("hltDriveCurrentFileName",created.name);
+    hltDriveRefreshStatus();alert("Saved to Drive: "+created.name);
+  }catch(err){hltDriveShowError(err)}
+}
+</script>
+<script>
+(async()=>{
+  try{
+    const res=await fetch("index.html?driveExperiment="+Date.now(),{cache:"no-store"});
+    if(!res.ok)throw new Error("Could not load index.html from this branch: "+res.status);
+    let html=await res.text();
+    const addon=document.getElementById("drive-addon-code").textContent;
+    if(!html.includes("initCanvas();"))throw new Error("Could not find initCanvas(); injection point in index.html");
+    html=html.replace("initCanvas();",addon+"\ninitDriveAddon();\ninitCanvas();");
+    document.open();document.write(html);document.close();
+  }catch(err){
+    document.getElementById("loader").innerHTML='<h1>Preview failed to load</h1><div class="muted">The experimental wrapper could not inject the Drive add-on.</div><div class="err"></div>';
+    document.querySelector(".err").textContent=err.stack||err.message||String(err);
+  }
+})();
+</script>
+</body>
+</html>
