@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Home Layout Tool</title>
+<style>
+*{margin:0;box-sizing:border-box}
+:root{--bg:#0c1222;--bg2:#1e293b;--bg3:#141d2e;--bdr:#334155;--acc:#22d3ee;--mut:#94a3b8;--dim:#64748b;--txt:#e2e8f0;--wrn:#facc15;--grn:#10b981;--red:#ef4444}
+body{background:var(--bg);color:var(--txt);font-family:'JetBrains Mono','Fira Code','Consolas',monospace;font-size:13px;overflow:hidden;height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+.row{display:flex;align-items:center;gap:2px}
+.bar{display:flex;align-items:center;gap:2px;padding:5px 10px;background:var(--bg2);border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap}
+.sub{display:flex;gap:4px;padding:5px 10px;background:var(--bg3);border-bottom:1px solid var(--bdr);flex-wrap:wrap;flex-shrink:0;align-items:center}
+.btn{background:transparent;border:1px solid transparent;color:var(--mut);padding:4px 8px;border-radius:4px;font-size:12px;white-space:nowrap}
+.btn.on{background:#334155;border-color:#475569;color:var(--acc)}
+.sbtn{background:transparent;border:1px solid var(--bdr);color:var(--mut);padding:4px 10px;border-radius:4px;font-size:12px}
+.inp{background:var(--bg);border:1px solid var(--bdr);color:var(--txt);padding:2px 5px;border-radius:3px;font-size:12px}
+.sep{width:1px;height:18px;background:var(--bdr);margin:0 3px}
+.hint{padding:4px 10px;font-size:11px;flex-shrink:0;border-bottom:1px solid var(--bdr)}
+#app{display:flex;flex-direction:column;height:100vh}
+#tabs{display:flex;gap:0;background:#0f172a;border-bottom:1px solid var(--bdr);flex-shrink:0;padding-left:8px}
+#tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);padding:6px 14px;font-size:11px}
+#tabs button.active{background:var(--bg2);border-bottom-color:var(--acc);color:var(--acc)}
+#main{display:flex;flex:1;overflow:hidden}
+#sidebar{width:210px;background:var(--bg2);border-right:1px solid var(--bdr);display:flex;flex-direction:column;flex-shrink:0;overflow:auto;transition:width .18s ease,max-height .18s ease,border-width .18s ease,opacity .18s ease}
+#main.sidebar-collapsed #sidebar{width:0;max-height:0;border-right-width:0;border-bottom-width:0;overflow:hidden;opacity:0}
+#sidebarToggle{position:absolute;top:10px;left:10px;z-index:6;background:rgba(15,23,42,.92);border:1px solid var(--bdr);color:var(--txt);border-radius:999px;padding:6px 10px;font-size:12px;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+#sidebar .lhdr{padding:6px 10px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between}
+.lyr{padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;border-left:3px solid transparent}
+.lyr.active{background:#334155}
+.lyr .vis{background:transparent;border:none;cursor:pointer;padding:0;font-size:12px;width:14px}
+.lyr .lck{background:transparent;border:none;cursor:pointer;padding:0;font-size:10px}
+.lyr.locked-layer{background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(250,204,21,0.04) 4px,rgba(250,204,21,0.04) 8px)}
+.lyr.locked-layer .lname{font-style:italic}
+.litm{padding:3px 10px 3px 30px;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:10px;border-bottom:1px solid #1e293b}
+.litm:hover{background:#1e293b}
+.litm.sel{background:#334155;color:var(--acc)}
+#props{margin-top:auto;border-top:1px solid var(--bdr);padding:7px}
+#props .phdr{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+#canvasWrap{flex:1;position:relative;overflow:hidden}
+canvas{width:100%;height:100%;touch-action:none}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--bg2);border:1px solid #475569;border-radius:8px;padding:18px;max-height:85vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.modal h3{margin:0;color:var(--acc);font-size:14px}
+.mbtn{background:var(--acc);border:none;color:var(--bg);padding:6px 14px;border-radius:4px;font-weight:600;font-size:12px;cursor:pointer}
+kbd{background:var(--bg);border:1px solid #475569;border-radius:3px;padding:1px 6px;font-size:10px;margin-right:6px}
+.layer-actions{display:flex;gap:2px;margin-left:auto}
+.layer-actions button{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:9px;padding:1px 3px}
+.layer-actions button:hover{color:var(--txt)}
+
+/* Mobile improvements */
+#toolbar,#subbar,#tabs{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#toolbar::-webkit-scrollbar,#subbar::-webkit-scrollbar,#tabs::-webkit-scrollbar{display:none}
+@media (max-width: 900px){
+  body{font-size:12px;overflow:auto}
+  #main{flex-direction:column}
+  #sidebar{width:100%;max-height:38vh;border-right:none;border-bottom:1px solid var(--bdr)}
+  #main.sidebar-collapsed #sidebar{width:0;max-height:0}
+  #canvasWrap{min-height:62vh}
+  .bar,.sub{flex-wrap:nowrap}
+  .btn,.sbtn{padding:6px 8px}
+  .inp{min-height:32px}
+}
+@media (max-width: 560px){
+  #sidebar{max-height:32vh}
+  #canvasWrap{min-height:68vh}
+  #tabs button{padding:8px 12px}
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="tabs"></div>
+  <div id="toolbar" class="bar"></div>
+  <div id="subbar"></div>
+  <div id="hintbar"></div>
+  <div id="main">
+    <div id="sidebar">
+      <div class="lhdr"><span>Layers</span><span><button onclick="toggleSidebar()" title="Collapse layers" style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:12px;margin-right:6px">▾</button><button onclick="addLayerPrompt()" style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:14px">+</button></span></div>
+      <div id="layerList"></div>
+      <div id="props"></div>
+    </div>
+    <div id="canvasWrap"><button id="sidebarToggle" onclick="toggleSidebar()" title="Show or hide layers">☰ Layers</button><canvas id="c"></canvas></div>
+  </div>
+</div>
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const CCOL=["#facc15","#f97316","#ef4444","#a855f7","#3b82f6","#22d3ee","#10b981","#84cc16","#f472b6","#e879f9"];
+
+const PRESETS={
+  furniture:[
+    {l:"Sofa",w:9,h:4,i:"🛋️"},{l:"Bed Queen",w:5,h:6.7,i:"🛏️"},{l:"Bed Twin",w:3.3,h:6.3,i:"🛏️"},
+    {l:"Table",w:6,h:4,i:"🪑"},{l:"Desk",w:5,h:2.5,i:"🖥️"},{l:"Chair",w:2,h:2,i:"🪑"},
+    {l:"Bookshelf",w:4,h:1.5,i:"📚"},{l:"TV Stand",w:5,h:1.5,i:"📺"},{l:"Fridge",w:3,h:3,i:"🧊"},
+    {l:"Stove",w:2.5,h:2.5,i:"🔥"},{l:"Washer",w:2.3,h:2.3,i:"🫧"},{l:"Dryer",w:2.3,h:2.3,i:"♨️"},
+    {l:"Workbench",w:8,h:3,i:"🔧"},{l:"Car",w:6,h:16,i:"🚗"},{l:"Toolbox",w:2,h:1.5,i:"🧰"},
+  ],
+  doors:[
+    {l:"Door 36\"",w:3,h:0.5,i:"🚪"},{l:"Door 30\"",w:2.5,h:0.5,i:"🚪"},{l:"Double Door",w:6,h:0.5,i:"🚪"},
+    {l:"Sliding Door",w:6,h:0.5,i:"🚪"},{l:"Garage Door",w:16,h:0.5,i:"🏗️"},
+    {l:"Window 36\"",w:3,h:0.33,i:"🪟"},{l:"Window 48\"",w:4,h:0.33,i:"🪟"},{l:"Window 60\"",w:5,h:0.33,i:"🪟"},
+  ],
+  electrical:[
+    {l:"Outlet",w:1,h:1,i:"⚡"},{l:"Switch",w:1,h:1,i:"🔘"},{l:"Light",w:1.2,h:1.2,i:"💡"},
+    {l:"Breaker Panel",w:2,h:4,i:"⚙️"},{l:"Smoke Det.",w:1,h:1,i:"🔔"},
+    {l:"Thermostat",w:1,h:1,i:"🌡️"},{l:"Junction Box",w:1.2,h:1.2,i:"📦"},
+  ],
+};
+
+const makeLayers=()=>[
+  {id:"background",name:"Background Image",visible:true,locked:false,color:"#ffffff",items:[]},
+  {id:"walls",name:"Walls & Structure",visible:true,locked:false,color:"#94a3b8",items:[]},
+  {id:"furniture",name:"Furniture",visible:true,locked:false,color:"#22d3ee",items:[]},
+  {id:"electrical",name:"Electrical / Wiring",visible:true,locked:false,color:"#facc15",items:[]},
+  {id:"plumbing",name:"Plumbing",visible:true,locked:false,color:"#3b82f6",items:[]},
+  {id:"labels",name:"Labels & Notes",visible:true,locked:false,color:"#f472b6",items:[]},
+];
+
+let S={
+  pages:[{id:"page_1",name:"Main Floor Plan",bgSrc:null,bgOpacity:.5,bgScale:1}],
+  activePageId:"page_1",
+  layers:makeLayers(),
+  activeLayerId:"furniture",
+  circuits:[{id:"c1",name:"Circuit 1",color:CCOL[0],amp:"15A"}],
+  activeCircuitId:"c1",
+  tool:"select",
+  pan:{x:0,y:0}, zoom:1,
+  showGrid:true,
+  scaleUnit:"ft", pxPerFt:20,
+  gridOrigin:{x:0,y:0},
+  selectedId:null,
+  showBuffer:false, bufferIn:3,
+  presetCat:"furniture",
+  selectedPreset:null,
+  showPresets:false, showCircuits:false, showScale:false,
+  expandedLayers:{},
+  sidebarCollapsed:false,
+};
+
+let bgImages={}; // pageId -> Image
+let pageStore={}; // pageId -> {layers}
+let clipboard=null; // copied item
+
+// Undo - push snapshot BEFORE any mutation. One push per action.
+let history=[], future=[], lastSnap=null;
+function snapState(){return JSON.stringify(S.layers)}
+function pushUndo(){
+  const s=snapState();
+  if(s!==lastSnap){
+    if(lastSnap)history.push(lastSnap);
+    if(history.length>80)history.shift();
+    future=[];
+  }
+  lastSnap=s;
+}
+function commitUndo(){lastSnap=snapState()} // call after mutation to update baseline
+function doUndo(){
+  if(!history.length)return;
+  future.push(snapState());
+  const prev=history.pop();
+  S.layers=JSON.parse(prev);
+  lastSnap=prev;
+  render();
+}
+function doRedo(){
+  if(!future.length)return;
+  history.push(snapState());
+  const next=future.pop();
+  S.layers=JSON.parse(next);
+  lastSnap=next;
+  render();
+}
+
+// Drawing state
+let drawing=null, dragging=null, resizing=null, isPanning=false, panStart=null;
+let wirePoints=[], calLine=null, calDrawing=false;
+let canvasW=800, canvasH=600;
+let shiftHeld=false;
+document.addEventListener("keydown",e=>{if(e.key==="Shift")shiftHeld=true});
+document.addEventListener("keyup",e=>{if(e.key==="Shift")shiftHeld=false});
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+const gridSize=()=>S.scaleUnit==="ft"?S.pxPerFt:S.pxPerFt/12;
+const snap=v=>{const g=gridSize();return Math.round(v/g)*g};
+const toUnits=px=>{const ft=px/S.pxPerFt;return S.scaleUnit==="in"?(ft*12).toFixed(1)+'"':ft.toFixed(1)+"'"};
+const s2w=(sx,sy)=>({x:(sx-S.pan.x)/S.zoom,y:(sy-S.pan.y)/S.zoom});
+const activePage=()=>S.pages.find(p=>p.id===S.activePageId)||S.pages[0];
+const activeLayer=()=>S.layers.find(l=>l.id===S.activeLayerId);
+const findItem=id=>{for(const l of S.layers)for(const it of l.items)if(it.id===id)return{item:it,layer:l};return null};
+const getName=it=>it.label||it.text||it.circuitName||it.type;
+const AUTOSAVE_KEY="homeLayoutToolAutosave_v1";
+let saveTimer=null;
+function getSaveData(){
+  pageStore[S.activePageId]={layers:S.layers};
+  const data={v:6,pages:S.pages,pd:{},circuits:S.circuits,pxPerFt:S.pxPerFt,scaleUnit:S.scaleUnit,gridOrigin:S.gridOrigin,pan:S.pan,zoom:S.zoom,activePageId:S.activePageId,activeLayerId:S.activeLayerId,expandedLayers:S.expandedLayers,sidebarCollapsed:S.sidebarCollapsed};
+  for(const p of S.pages)data.pd[p.id]=pageStore[p.id]||{layers:p.id===S.activePageId?S.layers:makeLayers()};
+  return data;
+}
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(getSaveData()))}catch(err){console.warn("Autosave failed",err)}
+  },180);
+}
+function loadAutosave(){
+  try{
+    const raw=localStorage.getItem(AUTOSAVE_KEY);if(!raw)return false;
+    return applyLoadedData(JSON.parse(raw),true);
+  }catch(err){console.warn("Autosave restore failed",err);return false}
+}
+function applyLoadedData(d,preferSavedActivePage=false){
+  const pd=d.pd||d.pageData||{};
+  if(d.pages){
+    S.pages=d.pages;for(const[k,v]of Object.entries(pd))pageStore[k]=v;
+    S.activePageId=(preferSavedActivePage&&d.activePageId)||d.pages[0]?.id||S.activePageId;
+    S.layers=pageStore[S.activePageId]?.layers||makeLayers();
+    for(const p of S.pages){if(p.bgSrc){const img=new Image();img.onload=(()=>{const pid=p.id;return()=>{bgImages[pid]=img;if(pid===S.activePageId)draw()}})(p);img.src=p.bgSrc}}
+  } else if(d.layers) S.layers=d.layers;
+  if(d.circuits)S.circuits=d.circuits;
+  if(d.pxPerFt||d.pixelsPerFoot)S.pxPerFt=d.pxPerFt||d.pixelsPerFoot;
+  if(d.scaleUnit)S.scaleUnit=d.scaleUnit;
+  if(d.gridOrigin)S.gridOrigin=d.gridOrigin;
+  if(d.zoom!==undefined)S.zoom=d.zoom;
+  if(d.pan)S.pan=d.pan;
+  if(d.activeLayerId)S.activeLayerId=d.activeLayerId;
+  if(d.expandedLayers)S.expandedLayers=d.expandedLayers;
+  if(d.sidebarCollapsed!==undefined)S.sidebarCollapsed=d.sidebarCollapsed;
+  lastSnap=null;history=[];future=[];
+  return true;
+}
+function toggleSidebar(){S.sidebarCollapsed=!S.sidebarCollapsed;render()}
+
+// ═══════════════════════════════════════
+//  HIT TESTING
+// ═══════════════════════════════════════
+function hitTest(wx,wy){
+  for(let i=S.layers.length-1;i>=0;i--){
+    const L=S.layers[i];if(!L.visible||L.locked)continue;
+    for(let j=L.items.length-1;j>=0;j--){
+      const it=L.items[j];
+      if(it.type==="rect"||it.type==="preset"||it.type==="ellipse"){
+        // Un-rotate point into item's local space
+        let lx=wx,ly=wy;
+        if(it.rot){const cx=it.x+it.w/2,cy=it.y+it.h/2,a=-it.rot*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);lx=cs*(wx-cx)-sn*(wy-cy)+cx;ly=sn*(wx-cx)+cs*(wy-cy)+cy}
+        if(lx>=it.x&&lx<=it.x+it.w&&ly>=it.y&&ly<=it.y+it.h)return{item:it,layerId:L.id};
+      }
+      if(it.type==="line"){
+        const d1=Math.hypot(wx-it.x,wy-it.y),d2=Math.hypot(wx-it.x2,wy-it.y2);
+        if(d1<10/S.zoom||d2<10/S.zoom)return{item:it,layerId:L.id,ep:d1<d2?"s":"e"};
+        const dx=it.x2-it.x,dy=it.y2-it.y,len=Math.hypot(dx,dy);if(len>=1){
+          const t=Math.max(0,Math.min(1,((wx-it.x)*dx+(wy-it.y)*dy)/(len*len)));
+          if(Math.hypot(wx-(it.x+t*dx),wy-(it.y+t*dy))<8/S.zoom)return{item:it,layerId:L.id,ep:null};
+        }
+      }
+      if(it.type==="wire"&&it.points){for(let k=0;k<it.points.length-1;k++){const p1=it.points[k],p2=it.points[k+1],dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy);if(len<1)continue;const t=Math.max(0,Math.min(1,((wx-p1.x)*dx+(wy-p1.y)*dy)/(len*len)));if(Math.hypot(wx-(p1.x+t*dx),wy-(p1.y+t*dy))<8/S.zoom)return{item:it,layerId:L.id};}}
+      if(it.type==="node"&&Math.hypot(wx-it.x,wy-it.y)<(it.radius||8)+4/S.zoom)return{item:it,layerId:L.id};
+      if(it.type==="text"&&wx>=it.x-4&&wx<=it.x+150&&wy>=it.y-16&&wy<=it.y+4)return{item:it,layerId:L.id};
+    }
+  }return null;
+}
+function bendHit(wx,wy){
+  for(let i=S.layers.length-1;i>=0;i--){const L=S.layers[i];if(!L.visible||L.locked)continue;
+    for(const it of L.items)if(it.type==="wire"&&it.points)for(let k=0;k<it.points.length;k++)if(Math.hypot(wx-it.points[k].x,wy-it.points[k].y)<8/S.zoom)return{item:it,layerId:L.id,pi:k};
+  }return null;
+}
+function resizeHit(wx,wy,it){
+  if(!it||(it.type!=="rect"&&it.type!=="preset"&&it.type!=="ellipse"))return null;
+  if(it.rot)return null; // Disable corner resize when rotated (use props panel instead)
+  let lx=wx,ly=wy;
+  if(it.rot){const cx2=it.x+it.w/2,cy2=it.y+it.h/2,a=-it.rot*Math.PI/180,cs=Math.cos(a),sn=Math.sin(a);lx=cs*(wx-cx2)-sn*(wy-cy2)+cx2;ly=sn*(wx-cx2)+cs*(wy-cy2)+cy2}
+  const h=8/S.zoom;
+  for(const[p,cx,cy]of[["se",it.x+it.w,it.y+it.h],["sw",it.x,it.y+it.h],["ne",it.x+it.w,it.y],["nw",it.x,it.y]])
+    if(Math.abs(lx-cx)<h&&Math.abs(ly-cy)<h)return p;
+  return null;
+}
+
+// ═══════════════════════════════════════
+//  MOUSE HANDLERS
+// ═══════════════════════════════════════
+function onDown(e){
+  const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const{x:wx,y:wy}=s2w(sx,sy);
+  if(S.tool==="__cal"){calLine={x:wx,y:wy,x2:wx,y2:wy};calDrawing=true;return}
+  if(e.button===1||(e.button===0&&e.altKey)){isPanning=true;panStart={x:e.clientX-S.pan.x,y:e.clientY-S.pan.y};return}
+  pushUndo(); // save state before any mutation
+  if(S.tool==="select"){
+    if(S.selectedId){const f=findItem(S.selectedId);if(f){const rh=resizeHit(wx,wy,f.item);if(rh){resizing={id:f.item.id,lid:f.layer.id,h:rh,sx:wx,sy:wy,orig:{...f.item}};return}}}
+    const bh=bendHit(wx,wy);
+    if(bh){S.selectedId=bh.item.id;dragging={id:bh.item.id,lid:bh.layerId,type:"bend",pi:bh.pi};render();return}
+    const hit=hitTest(wx,wy);
+    if(hit){
+      S.selectedId=hit.item.id;
+      if(hit.item.type==="line"){
+        if(hit.ep==="s")dragging={id:hit.item.id,lid:hit.layerId,type:"ls"};
+        else if(hit.ep==="e")dragging={id:hit.item.id,lid:hit.layerId,type:"le"};
+        else dragging={id:hit.item.id,lid:hit.layerId,type:"lb",ox1:wx-hit.item.x,oy1:wy-hit.item.y,ox2:wx-hit.item.x2,oy2:wy-hit.item.y2};
+      }else if(hit.item.type!=="wire")dragging={id:hit.item.id,lid:hit.layerId,type:"move",ox:wx-hit.item.x,oy:wy-hit.item.y};
+      render();
+    }else{S.selectedId=null;isPanning=true;panStart={x:e.clientX-S.pan.x,y:e.clientY-S.pan.y};render();}
+  }else if(S.tool==="wire"){wirePoints.push({x:snap(wx),y:snap(wy)});draw();
+  }else if(S.tool==="node"){const L=activeLayer();if(!L||L.locked)return;L.items.push({id:uid(),type:"node",x:snap(wx),y:snap(wy),radius:8,label:"JB",circuitId:S.activeCircuitId});render();
+  }else if(S.tool==="rect"||S.tool==="ellipse"){const L=activeLayer();if(!L||L.locked)return;drawing={type:S.tool,x:snap(wx),y:snap(wy),w:0,h:0};
+  }else if(S.tool==="line"){const L=activeLayer();if(!L||L.locked)return;drawing={type:"line",x:snap(wx),y:snap(wy),x2:snap(wx),y2:snap(wy)};
+  }else if(S.tool==="text"){const L=activeLayer();if(!L||L.locked)return;const t=prompt("Label:");if(t)L.items.push({id:uid(),type:"text",x:snap(wx),y:snap(wy),text:t,fontSize:14,label:""});render();
+  }else if(S.tool==="preset"&&S.selectedPreset){const L=activeLayer();if(!L||L.locked)return;const p=S.selectedPreset,pw=p.w*S.pxPerFt,ph=p.h*S.pxPerFt;L.items.push({id:uid(),type:"preset",x:snap(wx-pw/2),y:snap(wy-ph/2),w:pw,h:ph,label:p.l,icon:p.i});render();}
+}
+function onMove(e){
+  const r=cv.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const{x:wx,y:wy}=s2w(sx,sy);
+  if(S.tool==="__cal"&&calDrawing&&calLine){calLine.x2=wx;calLine.y2=wy;draw();return}
+  if(isPanning&&panStart){S.pan.x=e.clientX-panStart.x;S.pan.y=e.clientY-panStart.y;draw();return}
+  if(resizing){
+    const{orig:o,h,sx:sx2,sy:sy2,id,lid}=resizing;const f=findItem(id);if(!f)return;
+    const dx=snap(wx)-snap(sx2),dy=snap(wy)-snap(sy2);const c={};
+    if(h.includes("e"))c.w=Math.max(gridSize(),o.w+dx);if(h.includes("w")){c.x=o.x+dx;c.w=Math.max(gridSize(),o.w-dx)}
+    if(h.includes("s"))c.h=Math.max(gridSize(),o.h+dy);if(h.includes("n")){c.y=o.y+dy;c.h=Math.max(gridSize(),o.h-dy)}
+    Object.assign(f.item,c);draw();return;
+  }
+  if(drawing){
+    if(drawing.type==="line"){
+      let nx=snap(wx),ny=snap(wy);
+      if(shiftHeld){// Ortho lock: snap to horizontal or vertical
+        const dx=Math.abs(nx-drawing.x),dy=Math.abs(ny-drawing.y);
+        if(dx>dy)ny=drawing.y;else nx=drawing.x;
+      }
+      drawing.x2=nx;drawing.y2=ny;
+    }else{drawing.w=snap(wx)-drawing.x;drawing.h=snap(wy)-drawing.y}
+    draw();
+  }else if(dragging){
+    const f=findItem(dragging.id);if(!f)return;
+    if(dragging.type==="bend"){const np=[...f.item.points];np[dragging.pi]={x:snap(wx),y:snap(wy)};f.item.points=np;}
+    else if(dragging.type==="ls"){let nx=snap(wx),ny=snap(wy);if(shiftHeld){const dx=Math.abs(nx-f.item.x2),dy=Math.abs(ny-f.item.y2);if(dx>dy)ny=f.item.y2;else nx=f.item.x2}f.item.x=nx;f.item.y=ny}
+    else if(dragging.type==="le"){let nx=snap(wx),ny=snap(wy);if(shiftHeld){const dx=Math.abs(nx-f.item.x),dy=Math.abs(ny-f.item.y);if(dx>dy)ny=f.item.y;else nx=f.item.x}f.item.x2=nx;f.item.y2=ny}
+    else if(dragging.type==="lb"){f.item.x=snap(wx-dragging.ox1);f.item.y=snap(wy-dragging.oy1);f.item.x2=snap(wx-dragging.ox2);f.item.y2=snap(wy-dragging.oy2)}
+    else if(dragging.type==="move"){f.item.x=snap(wx-dragging.ox);f.item.y=snap(wy-dragging.oy)}
+    draw();
+  }
+}
+function onUp(){
+  if(S.tool==="__cal"&&calDrawing){calDrawing=false;if(calLine&&Math.hypot(calLine.x2-calLine.x,calLine.y2-calLine.y)>5)showCalModal();else calLine=null;return}
+  if(isPanning){isPanning=false;panStart=null;return}
+  if(resizing){resizing=null;commitUndo();return}
+  if(drawing){
+    const L=activeLayer();if(L){
+      const it={id:uid(),label:"",...drawing};
+      if(it.type!=="line"){if(it.w<0){it.x+=it.w;it.w=-it.w}if(it.h<0){it.y+=it.h;it.h=-it.h}if(it.w>4||it.h>4){L.items.push(it);S.selectedId=it.id;S._justCreated=it.id}}
+      else{if(Math.hypot(it.x2-it.x,it.y2-it.y)>4){L.items.push(it);S.selectedId=it.id;S._justCreated=it.id}}
+    }
+    drawing=null;commitUndo();render();
+  }
+  if(dragging){dragging=null;commitUndo();}
+}
+function onDblClick(e){
+  const r=cv.getBoundingClientRect();const{x:wx,y:wy}=s2w(e.clientX-r.left,e.clientY-r.top);
+  if(S.tool==="wire"&&wirePoints.length>=2){
+    const c=S.circuits.find(c=>c.id===S.activeCircuitId);const L=S.layers.find(l=>l.id===S.activeLayerId)||S.layers.find(l=>l.id==="electrical");
+    if(L){pushUndo();L.items.push({id:uid(),type:"wire",points:[...wirePoints],circuitId:S.activeCircuitId,circuitName:c?.name||"?",color:c?.color||"#facc15",label:""});wirePoints=[];commitUndo();render();}
+  }
+  if(S.tool==="select"&&S.selectedId){
+    const f=findItem(S.selectedId);if(f&&f.item.type==="wire"){
+      let bi=-1,bd=Infinity;
+      for(let k=0;k<f.item.points.length-1;k++){const p1=f.item.points[k],p2=f.item.points[k+1],dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy);if(len<1)continue;const t=Math.max(0,Math.min(1,((wx-p1.x)*dx+(wy-p1.y)*dy)/(len*len)));const d=Math.hypot(wx-(p1.x+t*dx),wy-(p1.y+t*dy));if(d<bd){bd=d;bi=k+1}}
+      if(bi>=0&&bd<20/S.zoom){pushUndo();f.item.points.splice(bi,0,{x:snap(wx),y:snap(wy)});commitUndo();render()}
+    }
+  }
+}
+function onWheel(e){
+  e.preventDefault();const r=cv.getBoundingClientRect();const sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const f=e.deltaY<0?1.1:.9;const nz=Math.max(.1,Math.min(8,S.zoom*f));
+  S.pan.x=sx-((sx-S.pan.x)/S.zoom)*nz;S.pan.y=sy-((sy-S.pan.y)/S.zoom)*nz;S.zoom=nz;draw();
+}
+
+// ═══════════════════════════════════════
+//  CANVAS DRAW
+// ═══════════════════════════════════════
+const cv=document.getElementById("c");const ctx=cv.getContext("2d");
+let touchPointer={active:false,fingerX:0,fingerY:0,targetX:0,targetY:0};
+function draw(){
+  const dpr=devicePixelRatio||1;cv.width=canvasW*dpr;cv.height=canvasH*dpr;cv.style.width=canvasW+"px";cv.style.height=canvasH+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#0c1222";ctx.fillRect(0,0,canvasW,canvasH);
+  ctx.save();ctx.translate(S.pan.x,S.pan.y);ctx.scale(S.zoom,S.zoom);
+  const g=gridSize(),pg=activePage(),bg=bgImages[S.activePageId];
+  const ox=S.gridOrigin.x,oy=S.gridOrigin.y;
+  // Grid
+  if(S.showGrid){
+    const sx=Math.floor((-S.pan.x/S.zoom-ox)/g)*g+ox,sy=Math.floor((-S.pan.y/S.zoom-oy)/g)*g+oy;
+    const ex=sx+canvasW/S.zoom+g*2,ey=sy+canvasH/S.zoom+g*2;
+    ctx.strokeStyle="rgba(51,65,85,.3)";ctx.lineWidth=.5/S.zoom;
+    for(let x=sx;x<ex;x+=g){ctx.beginPath();ctx.moveTo(x,sy);ctx.lineTo(x,ey);ctx.stroke()}
+    for(let y=sy;y<ey;y+=g){ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(ex,y);ctx.stroke()}
+    // Major grid: every 5 for feet, every 12 for inches
+    const mj=S.scaleUnit==="in"?g*12:g*5;
+    ctx.strokeStyle="rgba(71,85,105,.5)";ctx.lineWidth=1/S.zoom;
+    const ms=Math.floor((sx-ox)/mj)*mj+ox,ms2=Math.floor((sy-oy)/mj)*mj+oy;
+    for(let x=ms;x<ex;x+=mj){ctx.beginPath();ctx.moveTo(x,sy);ctx.lineTo(x,ey);ctx.stroke()}
+    for(let y=ms2;y<ey;y+=mj){ctx.beginPath();ctx.moveTo(sx,y);ctx.lineTo(ex,y);ctx.stroke()}
+    ctx.fillStyle="rgba(100,116,139,.6)";ctx.font=`${Math.max(8,10/S.zoom)}px monospace`;
+    for(let x=ms;x<ex;x+=mj){const v=(x-ox)/S.pxPerFt;ctx.fillText(S.scaleUnit==="ft"?v.toFixed(0)+"'":(v*12).toFixed(0)+'"',x+2/S.zoom,sy+12/S.zoom)}
+    // Grid origin marker
+    ctx.fillStyle="rgba(34,211,238,.3)";ctx.beginPath();ctx.arc(ox,oy,6/S.zoom,0,Math.PI*2);ctx.fill();
+  }
+  // BG
+  if(bg){ctx.globalAlpha=pg.bgOpacity??0.5;ctx.drawImage(bg,0,0,bg.width*(pg.bgScale||1),bg.height*(pg.bgScale||1));ctx.globalAlpha=1}
+  // Items
+  for(const L of S.layers){
+    if(!L.visible||L.id==="background")continue;
+    for(const it of L.items){
+      const sel=it.id===S.selectedId;ctx.strokeStyle=it.color||L.color;ctx.fillStyle=(it.color||L.color)+"33";ctx.lineWidth=sel?3/S.zoom:1.5/S.zoom;
+      // Apply rotation if set
+      const hasRot=it.rot&&(it.type==="rect"||it.type==="preset"||it.type==="ellipse");
+      if(hasRot){ctx.save();const cx=it.x+it.w/2,cy=it.y+it.h/2;ctx.translate(cx,cy);ctx.rotate(it.rot*Math.PI/180);ctx.translate(-cx,-cy)}
+      if(it.type==="rect"){ctx.fillRect(it.x,it.y,it.w,it.h);ctx.strokeRect(it.x,it.y,it.w,it.h);if(it.label){ctx.fillStyle=it.color||L.color;let fs=11;ctx.font=fs+"px monospace";while(fs>6&&ctx.measureText(it.label).width>it.w-4){fs--;ctx.font=fs+"px monospace"}ctx.fillText(it.label,it.x+2,it.y+fs+1,it.w-4)}if(it.verified===false){ctx.fillStyle="#facc1566";ctx.font="bold 8px monospace";ctx.fillText("~",it.x+it.w-10,it.y+10)}if(sel){ctx.fillStyle="#94a3b8";ctx.font="10px monospace";ctx.fillText(toUnits(it.w),it.x+it.w/2-12,it.y-4)}}
+      else if(it.type==="ellipse"){ctx.beginPath();ctx.ellipse(it.x+it.w/2,it.y+it.h/2,Math.abs(it.w)/2,Math.abs(it.h)/2,0,0,Math.PI*2);ctx.fill();ctx.stroke()}
+      else if(it.type==="line"){ctx.beginPath();ctx.moveTo(it.x,it.y);ctx.lineTo(it.x2,it.y2);ctx.stroke();ctx.fillStyle=it.color||L.color;const rr=sel?6/S.zoom:3/S.zoom;ctx.beginPath();ctx.arc(it.x,it.y,rr,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(it.x2,it.y2,rr,0,Math.PI*2);ctx.fill();if(sel){ctx.strokeStyle="#fff";ctx.lineWidth=1.5/S.zoom;ctx.beginPath();ctx.arc(it.x,it.y,rr+2/S.zoom,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(it.x2,it.y2,rr+2/S.zoom,0,Math.PI*2);ctx.stroke()}if(it.label){ctx.fillStyle=it.color||L.color;ctx.font="11px monospace";ctx.fillText(it.label,(it.x+it.x2)/2+4,(it.y+it.y2)/2-4)}if(sel){ctx.fillStyle="#94a3b8";ctx.font="10px monospace";ctx.fillText(toUnits(Math.hypot(it.x2-it.x,it.y2-it.y)),(it.x+it.x2)/2+4,(it.y+it.y2)/2+12)}}
+      else if(it.type==="text"){ctx.fillStyle=it.color||L.color;ctx.font=`${it.fontSize||14}px monospace`;ctx.fillText(it.text||it.label,it.x,it.y)}
+      else if(it.type==="preset"){ctx.fillRect(it.x,it.y,it.w,it.h);ctx.strokeRect(it.x,it.y,it.w,it.h);ctx.fillStyle=it.color||L.color;const fs=Math.min(it.w,it.h)*.3;ctx.font=`${Math.max(10,fs)}px sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(it.icon||"",it.x+it.w/2,it.y+it.h/2-fs*.3);let lfs=Math.max(7,fs*.5);ctx.font=`${lfs}px monospace`;const lbl=it.label||"";while(lfs>5&&ctx.measureText(lbl).width>it.w-4){lfs--;ctx.font=`${lfs}px monospace`}ctx.fillText(lbl,it.x+it.w/2,it.y+it.h/2+fs*.55);ctx.textAlign="start";ctx.textBaseline="alphabetic";if(it.verified===false){ctx.fillStyle="#facc1566";ctx.font="bold 8px monospace";ctx.fillText("~",it.x+it.w-10,it.y+10)}if(sel){ctx.fillStyle="#94a3b8";ctx.font="10px monospace";ctx.fillText(toUnits(it.w)+"×"+toUnits(it.h),it.x+it.w/2-20,it.y-4)}}
+      else if(it.type==="wire"&&it.points?.length>=2){ctx.strokeStyle=it.color||L.color;ctx.lineWidth=sel?3/S.zoom:2/S.zoom;ctx.beginPath();ctx.moveTo(it.points[0].x,it.points[0].y);for(let k=1;k<it.points.length;k++)ctx.lineTo(it.points[k].x,it.points[k].y);ctx.stroke();ctx.fillStyle=it.color||L.color;for(let k=0;k<it.points.length;k++){const rr=(k===0||k===it.points.length-1)?5/S.zoom:3.5/S.zoom;ctx.beginPath();ctx.arc(it.points[k].x,it.points[k].y,rr,0,Math.PI*2);ctx.fill();if(sel){ctx.strokeStyle="#fff";ctx.lineWidth=1/S.zoom;ctx.beginPath();ctx.arc(it.points[k].x,it.points[k].y,rr+2/S.zoom,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=it.color||L.color;ctx.lineWidth=3/S.zoom}}if(it.circuitName||it.label){const mid=Math.floor(it.points.length/2),mp=it.points[mid],nm=it.label||it.circuitName;ctx.font="bold 10px monospace";const tw=ctx.measureText(nm).width+8;ctx.fillStyle="#0c1222";ctx.fillRect(mp.x-tw/2,mp.y-8,tw,16);ctx.fillStyle=it.color||L.color;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(nm,mp.x,mp.y);ctx.textAlign="start";ctx.textBaseline="alphabetic"}}
+      else if(it.type==="node"){const ci=S.circuits.find(c=>c.id===it.circuitId);const col=ci?.color||it.color||L.color;ctx.fillStyle=col;ctx.strokeStyle=sel?"#fff":col;ctx.lineWidth=sel?2.5/S.zoom:1.5/S.zoom;ctx.beginPath();ctx.arc(it.x,it.y,it.radius||8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle="#0c1222";ctx.font="bold 10px monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(it.label||"JB",it.x,it.y);ctx.textAlign="start";ctx.textBaseline="alphabetic"}
+      // Selection handles
+      if(sel&&(it.type==="rect"||it.type==="preset"||it.type==="ellipse")){ctx.strokeStyle="#fff";ctx.lineWidth=1/S.zoom;ctx.setLineDash([4/S.zoom,4/S.zoom]);ctx.strokeRect(it.x-2,it.y-2,it.w+4,it.h+4);ctx.setLineDash([]);const hs=6/S.zoom;ctx.fillStyle="#fff";for(const[cx,cy]of[[it.x,it.y],[it.x+it.w,it.y],[it.x,it.y+it.h],[it.x+it.w,it.y+it.h]])ctx.fillRect(cx-hs/2,cy-hs/2,hs,hs)}
+      if(hasRot)ctx.restore();
+    }
+  }
+  // Buffer zones
+  if(S.showBuffer){
+    const bpx=(S.bufferIn/12)*S.pxPerFt;const bis=[];
+    for(const L of S.layers){if(!L.visible||L.id==="background")continue;for(const it of L.items)if(it.type==="rect"||it.type==="preset"||it.type==="ellipse")bis.push({...it,_b:it.bufferIn!==undefined?(it.bufferIn/12)*S.pxPerFt:bpx})}
+    for(const it of bis){const b=it._b;if(b<=0)continue;let ov=false;for(const o of bis){if(o.id===it.id)continue;if(it.x-b<o.x+o.w+o._b&&it.x+it.w+b>o.x-o._b&&it.y-b<o.y+o.h+o._b&&it.y+it.h+b>o.y-o._b){ov=true;break}}
+      ctx.strokeStyle=ov?"#ef444488":"#10b98144";ctx.fillStyle=ov?"#ef444411":"#10b98108";ctx.lineWidth=1/S.zoom;ctx.setLineDash([4/S.zoom,4/S.zoom]);
+      ctx.fillRect(it.x-b,it.y-b,it.w+b*2,it.h+b*2);ctx.strokeRect(it.x-b,it.y-b,it.w+b*2,it.h+b*2);ctx.setLineDash([]);
+      if(ov){ctx.fillStyle="#ef4444";ctx.font=`bold ${12/S.zoom}px sans-serif`;ctx.fillText("⚠",it.x+it.w+b-10/S.zoom,it.y-b+12/S.zoom)}
+    }
+  }
+  // Drawing preview
+  if(drawing){ctx.strokeStyle=activeLayer()?.color||"#fff";ctx.fillStyle=(activeLayer()?.color||"#fff")+"33";ctx.lineWidth=2/S.zoom;ctx.setLineDash([4/S.zoom,4/S.zoom]);if(drawing.type==="rect"){ctx.fillRect(drawing.x,drawing.y,drawing.w,drawing.h);ctx.strokeRect(drawing.x,drawing.y,drawing.w,drawing.h)}else if(drawing.type==="ellipse"){ctx.beginPath();ctx.ellipse(drawing.x+drawing.w/2,drawing.y+drawing.h/2,Math.abs(drawing.w)/2,Math.abs(drawing.h)/2,0,0,Math.PI*2);ctx.fill();ctx.stroke()}else if(drawing.type==="line"){ctx.beginPath();ctx.moveTo(drawing.x,drawing.y);ctx.lineTo(drawing.x2,drawing.y2);ctx.stroke()}ctx.setLineDash([])}
+  // Wire preview
+  if(wirePoints.length>0){const ci=S.circuits.find(c=>c.id===S.activeCircuitId);ctx.strokeStyle=ci?.color||"#facc15";ctx.lineWidth=2/S.zoom;ctx.setLineDash([6/S.zoom,3/S.zoom]);ctx.beginPath();ctx.moveTo(wirePoints[0].x,wirePoints[0].y);for(let k=1;k<wirePoints.length;k++)ctx.lineTo(wirePoints[k].x,wirePoints[k].y);ctx.stroke();ctx.setLineDash([]);for(const p of wirePoints){ctx.fillStyle=ci?.color||"#facc15";ctx.beginPath();ctx.arc(p.x,p.y,4/S.zoom,0,Math.PI*2);ctx.fill()}}
+  // Cal line
+  if(calLine){ctx.strokeStyle="#ff6b6b";ctx.lineWidth=3/S.zoom;ctx.setLineDash([8/S.zoom,4/S.zoom]);ctx.beginPath();ctx.moveTo(calLine.x,calLine.y);ctx.lineTo(calLine.x2,calLine.y2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle="#ff6b6b";ctx.beginPath();ctx.arc(calLine.x,calLine.y,5/S.zoom,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(calLine.x2,calLine.y2,5/S.zoom,0,Math.PI*2);ctx.fill();ctx.font=`bold ${14/S.zoom}px monospace`;ctx.fillText(Math.hypot(calLine.x2-calLine.x,calLine.y2-calLine.y).toFixed(0)+"px",(calLine.x+calLine.x2)/2+8/S.zoom,(calLine.y+calLine.y2)/2-8/S.zoom)}
+  ctx.restore();
+  if(touchPointer.active){
+    ctx.strokeStyle="rgba(255,255,255,.9)";ctx.fillStyle="rgba(34,211,238,.95)";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(touchPointer.fingerX,touchPointer.fingerY);ctx.lineTo(touchPointer.targetX,touchPointer.targetY);ctx.stroke();
+    const ang=Math.atan2(touchPointer.targetY-touchPointer.fingerY,touchPointer.targetX-touchPointer.fingerX), ah=10;
+    ctx.beginPath();ctx.moveTo(touchPointer.targetX,touchPointer.targetY);
+    ctx.lineTo(touchPointer.targetX-Math.cos(ang-Math.PI/6)*ah,touchPointer.targetY-Math.sin(ang-Math.PI/6)*ah);
+    ctx.lineTo(touchPointer.targetX-Math.cos(ang+Math.PI/6)*ah,touchPointer.targetY-Math.sin(ang+Math.PI/6)*ah);
+    ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.arc(touchPointer.targetX,touchPointer.targetY,7,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(touchPointer.fingerX,touchPointer.fingerY,14,0,Math.PI*2);ctx.strokeStyle="rgba(255,255,255,.28)";ctx.stroke();
+  }
+  ctx.fillStyle="rgba(148,163,184,.6)";ctx.font="11px monospace";
+  ctx.fillText(`${Math.round(S.zoom*100)}%  |  1 grid = ${S.scaleUnit==="ft"?"1'":'1"'}  |  ${S.pxPerFt}px/ft`,10,canvasH-10);
+}
+
+// ═══════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════
+document.addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")return;
+  if(e.ctrlKey&&e.key==="z"){e.preventDefault();doUndo();return}
+  if(e.ctrlKey&&(e.key==="y"||e.key==="Z")){e.preventDefault();doRedo();return}
+  if(e.ctrlKey&&e.key==="c"){e.preventDefault();if(S.selectedId){const f=findItem(S.selectedId);if(f)clipboard=JSON.parse(JSON.stringify(f.item))}return}
+  if(e.ctrlKey&&e.key==="v"){if(clipboard){e.preventDefault();const L=activeLayer();if(L&&!L.locked){pushUndo();const nit=JSON.parse(JSON.stringify(clipboard));nit.id=uid();nit.x=(nit.x||0)+20;nit.y=(nit.y||0)+20;if(nit.points)nit.points=nit.points.map(p=>({x:p.x+20,y:p.y+20}));L.items.push(nit);S.selectedId=nit.id;commitUndo();render()}}return}
+  if((e.key==="Delete"||e.key==="Backspace")&&S.selectedId){const f=findItem(S.selectedId);if(f){pushUndo();f.layer.items=f.layer.items.filter(i=>i.id!==S.selectedId);S.selectedId=null;commitUndo();render()}}
+  // Arrow nudge selected item
+  if(S.selectedId&&(e.key==="ArrowUp"||e.key==="ArrowDown"||e.key==="ArrowLeft"||e.key==="ArrowRight")){
+    const f=findItem(S.selectedId);if(f&&f.item.type!=="wire"){
+      e.preventDefault();const g=gridSize();pushUndo();
+      if(e.key==="ArrowUp")f.item.y-=g;if(e.key==="ArrowDown")f.item.y+=g;
+      if(e.key==="ArrowLeft")f.item.x-=g;if(e.key==="ArrowRight")f.item.x+=g;
+      commitUndo();render();return;
+    }
+  }
+  if(e.key==="Escape"){S.selectedId=null;S.tool="select";S.selectedPreset=null;wirePoints=[];calLine=null;calDrawing=false;render()}
+  const km={v:"select",r:"rect",l:"line",t:"text",o:"ellipse",g:null};
+  if(e.key==="v")S.tool="select";
+  if(e.key==="r")S.tool="rect";
+  if(e.key==="l")S.tool="line";
+  if(e.key==="t")S.tool="text";
+  if(e.key==="o")S.tool="ellipse";
+  if(e.key==="w"){S.tool="wire";wirePoints=[]}
+  if(e.key==="g"){S.showGrid=!S.showGrid}
+  if(e.key==="ArrowUp"&&!S.selectedId){e.preventDefault();cycleGridUp();return}
+  if(e.key==="ArrowDown"&&!S.selectedId){e.preventDefault();cycleGridDown();return}
+  if(e.key==="["||e.key==="{"){ e.preventDefault();cycleGridDown();return}
+  if(e.key==="]"||e.key==="}"){ e.preventDefault();cycleGridUp();return}
+  render();
+});
+
+// Clipboard paste image
+document.addEventListener("paste",e=>{
+  if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+  const items=e.clipboardData?.items;if(!items)return;
+  for(const item of items){if(item.type.startsWith("image/")){e.preventDefault();const file=item.getAsFile();const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{bgImages[S.activePageId]=img;S.pages.find(p=>p.id===S.activePageId).bgSrc=ev.target.result;render()};img.src=ev.target.result};reader.readAsDataURL(file);return}}
+});
+
+// ═══════════════════════════════════════
+//  UI RENDER
+// ═══════════════════════════════════════
+function render(){
+  renderTabs();renderToolbar();renderSubbar();renderHint();renderLayers();renderProps();
+  document.getElementById("main").classList.toggle("sidebar-collapsed",!!S.sidebarCollapsed);
+  const sb=document.getElementById("sidebarToggle"); if(sb) sb.textContent=S.sidebarCollapsed?"☰ Layers":"✕ Layers";
+  draw();scheduleSave();
+}
+
+function renderTabs(){
+  const el=document.getElementById("tabs");
+  el.innerHTML=S.pages.map(p=>`<button class="${p.id===S.activePageId?"active":""}" onclick="switchPage('${p.id}')">${p.name}</button>`).join("")+`<button onclick="addPagePrompt()" style="font-size:16px;color:var(--dim)">+</button>`;
+}
+
+function renderToolbar(){
+  const el=document.getElementById("toolbar");
+  const tb=(id,label,icon,key)=>`<button class="btn ${S.tool===id?'on':''}" onclick="setTool('${id}')" title="${key?label+' ('+key+')':label}">${icon} ${label}</button>`;
+  el.innerHTML=`
+    <span style="font-weight:700;font-size:14px;margin-right:8px;color:var(--acc);letter-spacing:1px">⌂ LAYOUT</span>
+    <button class="btn" onclick="doUndo()" title="Undo (Ctrl+Z)" style="opacity:${history.length?1:.3};font-size:14px;padding:2px 6px">↩</button>
+    <button class="btn" onclick="doRedo()" title="Redo (Ctrl+Y)" style="opacity:${future.length?1:.3};font-size:14px;padding:2px 6px">↪</button>
+    <span class="sep"></span>
+    ${tb("select","Select","↖","V")}${tb("rect","Rect","□","R")}${tb("ellipse","Ellipse","○","O")}${tb("line","Line","╱","L")}${tb("text","Text","A","T")}${tb("wire","Wire","⚡","W")}${tb("node","Node","◉","")}
+    <span class="sep"></span>
+    <button class="btn ${S.showPresets?'on':''}" onclick="S.showPresets=!S.showPresets;render()">📦 Presets</button>
+    <button class="btn ${S.showCircuits?'on':''}" onclick="S.showCircuits=!S.showCircuits;render()">🔌 Circuits</button>
+    <button class="btn ${S.showScale?'on':''}" onclick="S.showScale=!S.showScale;render()">📏 Scale</button>
+    <button class="btn ${S.tool==='__cal'?'on':''}" style="${S.tool==='__cal'?'color:#ff6b6b;border-color:#ff6b6b':''}" onclick="toggleCal()" title="Draw on known distance to calibrate">🎯 Calibrate</button>
+    <button class="btn ${S.showBuffer?'on':''}" style="color:${S.showBuffer?'var(--grn)':'var(--mut)'}" onclick="S.showBuffer=!S.showBuffer;render()">↔ Buffer</button>
+    ${S.showBuffer?`<input type="range" min="1" max="24" value="${S.bufferIn}" oninput="S.bufferIn=+this.value;render()" style="width:50px"><span style="font-size:10px;color:var(--mut)">${S.bufferIn}"</span>`:''}
+    <span class="sep"></span>
+    <label class="sbtn" style="cursor:pointer">🖼️ BG<input type="file" accept="image/*" onchange="uploadBg(event)" style="display:none"></label>
+    <button class="sbtn" onclick="alert('Copy an image, then Ctrl+V anywhere in the app.')">📋 Paste</button>
+    ${bgImages[S.activePageId]?`<span style="font-size:9px;color:var(--dim)">Op:</span><input type="range" min="0" max="1" step=".05" value="${activePage().bgOpacity}" oninput="activePage().bgOpacity=+this.value;draw()" style="width:40px"><span style="font-size:9px;color:var(--dim)">Sz:</span><input type="range" min=".05" max="5" step=".05" value="${activePage().bgScale}" oninput="activePage().bgScale=+this.value;draw()" style="width:40px">`:''}
+    <button class="btn ${S.showGrid?'on':''}" onclick="S.showGrid=!S.showGrid;render()" title="Grid (G)">#</button>
+    <span style="font-size:10px;color:var(--dim);margin:0 2px">Grid:</span>
+    <button class="btn" onclick="cycleGridDown()" title="Coarser grid (↓)" style="padding:2px 5px;font-size:11px">−</button>
+    <span style="font-size:11px;color:var(--acc);min-width:45px;text-align:center;display:inline-block">${S.scaleUnit==="ft"?"1'":"1\""}</span>
+    <button class="btn" onclick="cycleGridUp()" title="Finer grid (↑)" style="padding:2px 5px;font-size:11px">+</button>
+    <span style="flex:1"></span>
+    <button class="sbtn" onclick="showImportModal()">📋 Import</button>
+    <label class="sbtn" style="cursor:pointer">📂 Load<input type="file" accept=".json" onchange="loadJSON(event)" style="display:none"></label>
+    <button class="sbtn" onclick="saveJSON()">💾 JSON</button>
+    <button class="sbtn" onclick="exportPDF()">📄 PDF</button>
+    <button onclick="showHelpModal()" style="background:transparent;border:none;color:var(--mut);font-size:15px;padding:4px 6px;cursor:pointer">?</button>
+  `;
+}
+
+function renderSubbar(){
+  const el=document.getElementById("subbar");let h="";
+  if(S.showPresets){
+    const cats=Object.keys(PRESETS);
+    h+=`<div class="sub"><span style="color:var(--dim);font-size:10px;margin-right:4px">CAT:</span>`;
+    for(const c of cats)h+=`<button class="btn ${S.presetCat===c?'on':''}" onclick="S.presetCat='${c}';render()" style="font-size:11px">${c}</button>`;
+    h+=`<span class="sep"></span>`;
+    for(let pi=0;pi<PRESETS[S.presetCat].length;pi++){const p=PRESETS[S.presetCat][pi];h+=`<button class="btn ${S.selectedPreset?.l===p.l?'on':''}" onclick="pickPresetIdx(${pi})">${p.i} ${p.l}</button>`;}
+    h+=`</div>`;
+  }
+  if(S.showCircuits){
+    h+=`<div class="sub"><span style="color:var(--dim);font-size:10px;margin-right:4px">CIRCUITS:</span>`;
+    for(const c of S.circuits)h+=`<button class="btn ${S.activeCircuitId===c.id?'on':''}" style="border-color:${c.color};color:${S.activeCircuitId===c.id?c.color:'var(--mut)'}" onclick="S.activeCircuitId='${c.id}';render()">● ${c.name} (${c.amp})</button>`;
+    h+=`<button class="sbtn" style="font-size:11px" onclick="addCircuit()">+ Add</button></div>`;
+  }
+  if(S.showScale){
+    h+=`<div class="sub">
+      <span style="color:var(--dim);font-size:10px">UNIT:</span>
+      <button class="btn ${S.scaleUnit==='ft'?'on':''}" onclick="changeScale('ft',S.pxPerFt)">Feet</button>
+      <button class="btn ${S.scaleUnit==='in'?'on':''}" onclick="changeScale('in',S.pxPerFt)">Inches</button>
+      <span class="sep" style="height:16px"></span>
+      <span style="color:var(--dim);font-size:10px">PX/FT:</span>
+      <input type="range" min="5" max="100" value="${S.pxPerFt}" oninput="changeScale(S.scaleUnit,+this.value)" style="width:80px">
+      <span style="color:var(--mut);font-size:11px;width:24px">${S.pxPerFt}</span>
+      <span class="sep" style="height:16px"></span>
+      <span style="color:var(--dim);font-size:10px">QUICK:</span>
+      <button class="sbtn" onclick="changeScale('ft',20)" title="1 grid = 1 foot, good for a single room">Room (1'=20px)</button>
+      <button class="sbtn" onclick="changeScale('in',60)" title="1 grid = 1 inch, good for detailed close-up work">Detail (1\"=5px)</button>
+      <button class="sbtn" onclick="changeScale('ft',8)" title="1 grid = 1 foot at small scale, good for whole house overview">House (1'=8px)</button>
+      <span class="sep" style="height:16px"></span>
+      <span style="color:var(--dim);font-size:10px">ORIGIN:</span>
+      <button class="sbtn" onclick="setGridOriginFromSelected()" title="Set grid origin to selected item's corner">Anchor to Selected</button>
+      <button class="sbtn" onclick="S.gridOrigin={x:0,y:0};render()">Reset Origin</button>
+    </div>`;
+  }
+  el.innerHTML=h;
+}
+
+function renderHint(){
+  const el=document.getElementById("hintbar");
+  if(S.tool==="__cal")el.innerHTML=`<div class="hint" style="background:#2a1520;color:#ff6b6b">🎯 Draw a line across a known distance on the image. Esc to cancel.</div>`;
+  else if(S.tool==="wire")el.innerHTML=`<div class="hint" style="background:#1a1a2e;color:var(--wrn)">⚡ Click to place points, double-click to finish. Circuit: <strong>${S.circuits.find(c=>c.id===S.activeCircuitId)?.name||"?"}</strong></div>`;
+  else el.innerHTML="";
+}
+
+function renderLayers(){
+  const el=document.getElementById("layerList");let h="";
+  for(const L of S.layers){
+    const a=L.id===S.activeLayerId;
+    const lk=L.locked;
+    h+=`<div class="lyr${a?' active':''}${lk?' locked-layer':''}" style="border-left-color:${a?L.color:'transparent'}" onclick="S.activeLayerId='${L.id}';render()">
+      <button class="vis" onclick="event.stopPropagation();toggleVis('${L.id}')" style="color:${L.visible?L.color:'#475569'}">${L.visible?'👁':'—'}</button>
+      ${L.items.length?`<button style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:10px;width:12px;padding:0" onclick="event.stopPropagation();toggleExpand('${L.id}')">${S.expandedLayers[L.id]?'▼':'▶'}</button>`:'<span style="width:12px"></span>'}
+      <span class="lname" style="flex:1;color:${L.visible?'var(--txt)':'#475569'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${L.name}</span>
+      <span style="color:#475569;font-size:9px">${L.items.length}</span>
+      <div class="layer-actions" onclick="event.stopPropagation()">
+        <button onclick="moveLayer('${L.id}',-1)" title="Move up">▲</button>
+        <button onclick="moveLayer('${L.id}',1)" title="Move down">▼</button>
+      </div>
+      <button class="lck" onclick="event.stopPropagation();toggleLock('${L.id}')" style="color:${lk?'var(--wrn)':'#475569'};font-size:${lk?'12px':'10px'}">${lk?'🔒':'🔓'}</button>
+      <input type="color" value="${L.color}" onclick="event.stopPropagation()" onchange="setLayerColor('${L.id}',this.value)" style="width:14px;height:14px;border:none;background:transparent;cursor:pointer;padding:0">
+    </div>`;
+    if(S.expandedLayers[L.id]&&L.items.length){
+      h+=`<div style="background:#141d2e;border-left:3px solid ${L.color}22">`;
+      for(let i=0;i<L.items.length;i++){
+        const it=L.items[i];const sel=it.id===S.selectedId;
+        h+=`<div class="litm${sel?' sel':''}" onclick="selectAndPan('${it.id}')" draggable="true" ondragstart="dragItemStart(event,'${L.id}',${i})" style="color:${sel?'var(--acc)':'var(--dim)'}">
+          <span style="color:${L.color};font-size:9px;width:14px">${it.type==="rect"?"□":it.type==="line"?"╱":it.type==="wire"?"⚡":it.type==="node"?"◉":it.type==="preset"?(it.icon||"□"):it.type==="ellipse"?"○":"T"}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getName(it)}</span>
+          ${it.notes?'<span title="Has notes" style="font-size:9px">📝</span>':''}
+          ${it.verified?'<span title="Verified" style="font-size:8px;color:var(--grn)">✓</span>':it.verified===false?'<span title="Estimate" style="font-size:8px;color:var(--wrn)">~</span>':''}
+          <div style="display:flex;gap:1px" onclick="event.stopPropagation()">
+            <button style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:9px;padding:1px 2px" onclick="moveItem('${L.id}',${i},-1)" title="Move up">▲</button>
+            <button style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:9px;padding:1px 2px" onclick="moveItem('${L.id}',${i},1)" title="Move down">▼</button>
+          </div>
+        </div>`;
+      }
+      h+=`</div>`;
+    }
+  }
+  el.innerHTML=h;
+}
+
+function renderProps(){
+  const el=document.getElementById("props");
+  if(!S.selectedId){el.innerHTML="";return}
+  const f=findItem(S.selectedId);if(!f){el.innerHTML="";return}
+  const it=f.item,L=f.layer;
+  const pxToIn=px=>(px/S.pxPerFt*12);
+  const justCreated=S._justCreated===it.id;
+  let h=`<div class="phdr">Props</div><div style="display:flex;flex-direction:column;gap:3px;font-size:11px">`;
+  // Name - auto-focus if just created
+  h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--acc);font-size:10px;width:28px">Name</span><input class="inp" id="propName" style="flex:1;border-color:rgba(34,211,238,.3)" value="${(it.label??it.text??it.circuitName??'').replace(/"/g,'&quot;')}" oninput="renameItem('${it.id}',this.value)" placeholder="click to name..."></div>`;
+  // Move to layer
+  h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);font-size:10px;width:28px">Layer</span><select class="inp" style="flex:1" onchange="moveToLayer('${it.id}','${L.id}',this.value)">${S.layers.filter(l=>l.id!=='background').map(l=>`<option value="${l.id}"${l.id===L.id?' selected':''}>${l.name}</option>`).join('')}</select></div>`;
+  // Verified / estimate toggle
+  if(it.type!=="text"&&it.type!=="wire"&&it.type!=="node"){
+    const v=it.verified?"verified":"estimate";
+    h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);font-size:10px;width:28px">Meas.</span><button class="sbtn" style="flex:1;padding:2px 6px;font-size:10px;color:${it.verified?'var(--grn)':'var(--wrn)'}" onclick="updItem('${it.id}','verified',${!it.verified})">${it.verified?'✓ Verified':'~ Estimate'}</button></div>`;
+  }
+  // Size in real units (inches)
+  if(it.type==="rect"||it.type==="preset"||it.type==="ellipse"){
+    const wIn=pxToIn(it.w),hIn=pxToIn(it.h);
+    h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);width:14px">W</span><input class="inp" type="number" style="flex:1;width:45px" value="${+wIn.toFixed(1)}" step="0.5" onchange="updItemReal('${it.id}','w',+this.value)"><span style="color:var(--dim);font-size:9px">in</span><span style="color:var(--dim);width:14px">H</span><input class="inp" type="number" style="flex:1;width:45px" value="${+hIn.toFixed(1)}" step="0.5" onchange="updItemReal('${it.id}','h',+this.value)"><span style="color:var(--dim);font-size:9px">in</span></div>`;
+    h+=`<div style="color:var(--dim);font-size:10px">${toUnits(it.w)} × ${toUnits(it.h)} · ${Math.round(it.w)}×${Math.round(it.h)}px</div>`;
+    // Buffer
+    h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);width:14px">↔</span><span style="color:var(--dim);font-size:10px;width:34px">Buf</span><input class="inp" type="number" style="flex:1;width:35px" value="${it.bufferIn??''}" placeholder="${S.bufferIn}" min="0" max="48" onchange="updItem('${it.id}','bufferIn',this.value===''?undefined:+this.value)"><span style="color:var(--dim);font-size:9px">in</span></div>`;
+    // Rotation
+    h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);width:14px">↻</span><span style="color:var(--dim);font-size:10px;width:34px">Rot</span><input class="inp" type="number" style="flex:1;width:35px" value="${it.rot||0}" step="1" onchange="rotateItem('${it.id}',+this.value)"><span style="color:var(--dim);font-size:9px">°</span></div>`;
+    h+=`<div style="display:flex;gap:2px">`;
+    h+=`<button class="sbtn" style="flex:1;padding:2px 3px;font-size:9px" onclick="rotateItem('${it.id}',(${it.rot||0})+90)">+90</button>`;
+    h+=`<button class="sbtn" style="flex:1;padding:2px 3px;font-size:9px" onclick="rotateItem('${it.id}',(${it.rot||0})+45)">+45</button>`;
+    h+=`<button class="sbtn" style="flex:1;padding:2px 3px;font-size:9px" onclick="rotateItem('${it.id}',(${it.rot||0})-90)">-90</button>`;
+    h+=`<button class="sbtn" style="flex:1;padding:2px 3px;font-size:9px" onclick="rotateItem('${it.id}',0)">0°</button>`;
+    h+=`</div>`;
+  }
+  if(it.type==="line"){
+    const len=Math.hypot(it.x2-it.x,it.y2-it.y);
+    h+=`<div style="color:var(--dim);font-size:10px">Length: ${toUnits(len)} (${pxToIn(len).toFixed(1)}")</div>`;
+  }
+  if(it.type==="wire")h+=`<div style="color:var(--dim);font-size:10px">${it.points?.length||0} pts · Dbl-click to add bend</div>`;
+  if(it.circuitId){h+=`<div style="display:flex;gap:3px;align-items:center"><span style="color:var(--dim);width:14px">⚡</span><select class="inp" style="flex:1" onchange="const c=S.circuits.find(ci=>ci.id===this.value);updItem('${it.id}','circuitId',this.value);if(c){updItem('${it.id}','circuitName',c.name);updItem('${it.id}','color',c.color)}">${S.circuits.map(c=>`<option value="${c.id}"${c.id===it.circuitId?' selected':''}>${c.name}</option>`).join('')}</select></div>`}
+  // Notes
+  h+=`<div style="display:flex;gap:3px;align-items:start;margin-top:2px"><span style="color:var(--dim);font-size:10px;width:28px;padding-top:3px">Notes</span><textarea class="inp" style="flex:1;height:${it.notes?'50':'24'}px;resize:vertical;font-size:10px" placeholder="hidden notes..." oninput="updItemNote('${it.id}',this.value)">${(it.notes||'').replace(/</g,'&lt;')}</textarea></div>`;
+  // Delete
+  h+=`<button onclick="deleteSelected()" style="background:#7f1d1d;border:none;color:#fca5a5;padding:3px 8px;border-radius:3px;cursor:pointer;font-size:11px;margin-top:2px">Delete</button>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+  // Auto-focus name field for just-created items
+  if(justCreated){S._justCreated=null;const inp=document.getElementById("propName");if(inp){inp.focus();inp.select()}}
+}
+
+// ═══════════════════════════════════════
+//  ACTIONS
+// ═══════════════════════════════════════
+function setTool(t){S.tool=t;S.selectedPreset=null;if(t==="wire")wirePoints=[];calLine=null;render()}
+function toggleCal(){if(S.tool==="__cal"){S.tool="select";calLine=null}else{S.tool="__cal";calLine=null}render()}
+function pickPreset(label){const cat=PRESETS[S.presetCat];const p=cat.find(x=>x.l===label);S.selectedPreset=p;S.tool="preset";render()}
+function pickPresetIdx(idx){S.selectedPreset=PRESETS[S.presetCat][idx];S.tool="preset";render()}
+function switchPage(id){if(id===S.activePageId)return;pageStore[S.activePageId]={layers:S.layers};S.activePageId=id;S.layers=pageStore[id]?.layers||makeLayers();lastSnap=null;history=[];future=[];render()}
+function addPagePrompt(){const n=prompt("Page name:","New Page");if(!n)return;pageStore[S.activePageId]={layers:S.layers};const pg={id:"p_"+uid(),name:n,bgSrc:null,bgOpacity:.5,bgScale:1};S.pages.push(pg);S.activePageId=pg.id;S.layers=makeLayers();lastSnap=null;history=[];future=[];render()}
+function addLayerPrompt(){const n=prompt("Layer name:");if(!n)return;S.layers.push({id:"l_"+uid(),name:n,visible:true,locked:false,color:"#10b981",items:[]});render()}
+function toggleVis(id){const L=S.layers.find(l=>l.id===id);if(L)L.visible=!L.visible;render()}
+function toggleLock(id){const L=S.layers.find(l=>l.id===id);if(L)L.locked=!L.locked;render()}
+function toggleExpand(id){S.expandedLayers[id]=!S.expandedLayers[id];render()}
+function setLayerColor(id,c){const L=S.layers.find(l=>l.id===id);if(L)L.color=c;render()}
+function moveLayer(id,dir){const i=S.layers.findIndex(l=>l.id===id);const ni=i+dir;if(ni<0||ni>=S.layers.length)return;[S.layers[i],S.layers[ni]]=[S.layers[ni],S.layers[i]];render()}
+function moveItem(lid,idx,dir){const L=S.layers.find(l=>l.id===lid);if(!L)return;const ni=idx+dir;if(ni<0||ni>=L.items.length)return;pushUndo();[L.items[idx],L.items[ni]]=[L.items[ni],L.items[idx]];commitUndo();render()}
+function selectAndPan(id){
+  const f=findItem(id);if(!f)return;S.selectedId=id;
+  const it=f.item;let cx,cy;
+  if(it.points?.length){cx=it.points.reduce((s,p)=>s+p.x,0)/it.points.length;cy=it.points.reduce((s,p)=>s+p.y,0)/it.points.length}
+  else if(it.x2!==undefined){cx=(it.x+it.x2)/2;cy=(it.y+it.y2)/2}
+  else{cx=it.x+(it.w||0)/2;cy=it.y+(it.h||0)/2}
+  S.pan.x=canvasW/2-cx*S.zoom;S.pan.y=canvasH/2-cy*S.zoom;render();
+}
+// Debounced rename - don't push undo on every keystroke
+let _renameTimer=null;
+function renameItem(id,val){
+  const f=findItem(id);if(!f)return;
+  if(!_renameTimer)pushUndo();
+  clearTimeout(_renameTimer);
+  if(f.item.text!==undefined)f.item.text=val;else if(f.item.type==="wire"){f.item.circuitName=val;f.item.label=val}else f.item.label=val;
+  _renameTimer=setTimeout(()=>{commitUndo();_renameTimer=null},500);
+  renderLayers();draw();
+}
+function updItem(id,key,val){const f=findItem(id);if(!f)return;pushUndo();f.item[key]=val;commitUndo();render()}
+function updItemReal(id,key,inches){
+  // Set item dimension in real inches, converting to pixels
+  const f=findItem(id);if(!f)return;pushUndo();
+  f.item[key]=(inches/12)*S.pxPerFt;
+  commitUndo();render();
+}
+function rotateItem(id,deg){const f=findItem(id);if(!f)return;pushUndo();f.item.rot=((deg%360)+360)%360;commitUndo();render()}
+// Notes update - debounced like rename
+let _noteTimer=null;
+function updItemNote(id,val){
+  const f=findItem(id);if(!f)return;
+  if(!_noteTimer)pushUndo();
+  clearTimeout(_noteTimer);
+  f.item.notes=val;
+  _noteTimer=setTimeout(()=>{commitUndo();_noteTimer=null},500);
+}
+function moveToLayer(itemId,fromLid,toLid){if(fromLid===toLid)return;const from=S.layers.find(l=>l.id===fromLid),to=S.layers.find(l=>l.id===toLid);if(!from||!to)return;const idx=from.items.findIndex(i=>i.id===itemId);if(idx<0)return;pushUndo();const[item]=from.items.splice(idx,1);to.items.push(item);commitUndo();render()}
+function deleteSelected(){if(!S.selectedId)return;const f=findItem(S.selectedId);if(!f)return;pushUndo();f.layer.items=f.layer.items.filter(i=>i.id!==S.selectedId);S.selectedId=null;commitUndo();render()}
+function setGridOriginFromSelected(){if(!S.selectedId)return;const f=findItem(S.selectedId);if(!f)return;S.gridOrigin={x:f.item.x||0,y:f.item.y||0};render()}
+function addCircuit(){const i=S.circuits.length;S.circuits.push({id:"c_"+uid(),name:`Circuit ${i+1}`,color:CCOL[i%CCOL.length],amp:"15A"});S.activeCircuitId=S.circuits[S.circuits.length-1].id;render()}
+// ── Scale change: rescale all items so real-world dimensions stay constant ──
+function changeScale(newUnit,newPxPerFt){
+  const oldPxPerFt=S.pxPerFt;
+  const ratio=newPxPerFt/oldPxPerFt;
+  if(ratio!==1){
+    pushUndo();
+    for(const L of S.layers){for(const it of L.items){
+      if(it.x!==undefined)it.x*=ratio;if(it.y!==undefined)it.y*=ratio;
+      if(it.w!==undefined)it.w*=ratio;if(it.h!==undefined)it.h*=ratio;
+      if(it.x2!==undefined)it.x2*=ratio;if(it.y2!==undefined)it.y2*=ratio;
+      if(it.radius!==undefined)it.radius*=ratio;
+      if(it.points)it.points=it.points.map(p=>({x:p.x*ratio,y:p.y*ratio}));
+    }}
+    S.gridOrigin.x*=ratio;S.gridOrigin.y*=ratio;
+    S.pan.x*=ratio;S.pan.y*=ratio;
+    commitUndo();
+  }
+  S.pxPerFt=newPxPerFt;S.scaleUnit=newUnit;render();
+}
+// Grid cycling
+const GRID_STEPS=[{u:"ft",px:8},{u:"ft",px:20},{u:"ft",px:40},{u:"in",px:20},{u:"in",px:40},{u:"in",px:60}];
+function getGridStepIdx(){return GRID_STEPS.findIndex(s=>s.u===S.scaleUnit&&s.px===S.pxPerFt)}
+function cycleGridUp(){let i=getGridStepIdx();if(i<0)i=1;i=Math.min(i+1,GRID_STEPS.length-1);changeScale(GRID_STEPS[i].u,GRID_STEPS[i].px)}
+function cycleGridDown(){let i=getGridStepIdx();if(i<0)i=1;i=Math.max(i-1,0);changeScale(GRID_STEPS[i].u,GRID_STEPS[i].px)}
+function uploadBg(e){const file=e.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{const img=new Image();img.onload=()=>{bgImages[S.activePageId]=img;activePage().bgSrc=ev.target.result;render()};img.src=ev.target.result};reader.readAsDataURL(file);e.target.value=""}
+
+// Drag items between layers
+let dragData=null;
+function dragItemStart(e,lid,idx){dragData={lid,idx};e.dataTransfer.effectAllowed="move"}
+document.addEventListener("dragover",e=>e.preventDefault());
+document.addEventListener("drop",e=>{
+  if(!dragData)return;e.preventDefault();
+  const target=e.target.closest?.(".lyr");
+  if(target){const toLid=target.getAttribute("onclick")?.match(/'([^']+)'/)?.[1];
+    if(toLid&&toLid!==dragData.lid){const from=S.layers.find(l=>l.id===dragData.lid);const to=S.layers.find(l=>l.id===toLid);
+      if(from&&to){pushUndo();const[item]=from.items.splice(dragData.idx,1);to.items.push(item);commitUndo();render()}}}
+  dragData=null;
+});
+
+// ═══════════════════════════════════════
+//  CALIBRATION
+// ═══════════════════════════════════════
+function showCalModal(){
+  const len=Math.hypot(calLine.x2-calLine.x,calLine.y2-calLine.y);
+  const d=document.createElement("div");d.className="modal-bg";d.onclick=e=>{if(e.target===d){d.remove();calLine=null;draw()}};
+  d.innerHTML=`<div class="modal" style="width:380px" onclick="event.stopPropagation()">
+    <h3>🎯 Set Reference Distance</h3>
+    <p style="color:var(--mut);font-size:12px;line-height:1.5">Line: <strong style="color:#ff6b6b">${len.toFixed(0)} canvas px</strong>. Real-world distance?</p>
+    <div style="display:flex;gap:8px;align-items:center"><input class="inp" id="calVal" type="number" value="20" min=".1" step=".5" style="flex:1;padding:6px 8px;font-size:16px"><select class="inp" id="calUn" style="padding:6px 8px;font-size:14px"><option value="ft">feet</option><option value="in">inches</option></select></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="sbtn" onclick="this.closest('.modal-bg').remove();calLine=null;draw()">Cancel</button><button class="mbtn" onclick="applyCal()">Apply Scale</button></div>
+  </div>`;
+  document.body.appendChild(d);
+}
+function applyCal(){
+  const len=Math.hypot(calLine.x2-calLine.x,calLine.y2-calLine.y);
+  let ft=parseFloat(document.getElementById("calVal").value);
+  if(document.getElementById("calUn").value==="in")ft/=12;
+  if(ft<=0||len<=0)return;
+  const target=ft*S.pxPerFt;const pg=activePage();pg.bgScale=(pg.bgScale||1)*(target/len);
+  calLine=null;S.tool="select";document.querySelector(".modal-bg")?.remove();render();
+}
+
+// ═══════════════════════════════════════
+//  IMPORT/EXPORT
+// ═══════════════════════════════════════
+function saveJSON(){
+  pageStore[S.activePageId]={layers:S.layers};
+  const data={v:4,pages:S.pages,pd:{},circuits:S.circuits,pxPerFt:S.pxPerFt,scaleUnit:S.scaleUnit,gridOrigin:S.gridOrigin};
+  for(const p of S.pages)data.pd[p.id]=pageStore[p.id]||{layers:p.id===S.activePageId?S.layers:makeLayers()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="home-layout.json";a.click();
+}
+function loadJSON(e){
+  const file=e.target.files?.[0];if(!file)return;
+  const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);applyLoadedData(d,true);render();}catch(err){console.error(err);alert("Error loading: "+err.message)}};reader.readAsText(file);e.target.value="";
+}
+function exportPDF(){const d=cv.toDataURL("image/png");const w=window.open("");w.document.write(`<html><head><title>Layout</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff}img{max-width:100%;max-height:100vh}@media print{img{page-break-inside:avoid}}
+/* Mobile improvements */
+#toolbar,#subbar,#tabs{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#toolbar::-webkit-scrollbar,#subbar::-webkit-scrollbar,#tabs::-webkit-scrollbar{display:none}
+@media (max-width: 900px){
+  body{font-size:12px;overflow:auto}
+  #main{flex-direction:column}
+  #sidebar{width:100%;max-height:38vh;border-right:none;border-bottom:1px solid var(--bdr)}
+  #main.sidebar-collapsed #sidebar{width:0;max-height:0}
+  #canvasWrap{min-height:62vh}
+  .bar,.sub{flex-wrap:nowrap}
+  .btn,.sbtn{padding:6px 8px}
+  .inp{min-height:32px}
+}
+@media (max-width: 560px){
+  #sidebar{max-height:32vh}
+  #canvasWrap{min-height:68vh}
+  #tabs button{padding:8px 12px}
+}
+
+</style></head><body><img src="${d}"/><script>setTimeout(()=>window.print(),400)<\/script></body></html>`)}
+
+function showImportModal(){
+  const d=document.createElement("div");d.className="modal-bg";d.onclick=e=>{if(e.target===d)d.remove()};
+  d.innerHTML=`<div class="modal" style="width:520px" onclick="event.stopPropagation()">
+    <h3>Text Import</h3>
+    <p style="color:var(--mut);font-size:11px;line-height:1.5">Format: <code style="background:var(--bg);padding:1px 4px;border-radius:3px">type,x,y,w,h,label</code> | <code style="background:var(--bg);padding:1px 4px;border-radius:3px">layer:Name</code></p>
+    <textarea id="importText" class="inp" style="width:100%;height:160px;padding:8px;resize:vertical" placeholder="# Example:\nlayer:Walls & Structure\nrect,0,0,400,10,North Wall"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="sbtn" onclick="this.closest('.modal-bg').remove()">Cancel</button><button class="mbtn" onclick="doTextImport()">Import</button></div>
+  </div>`;
+  document.body.appendChild(d);
+}
+function doTextImport(){
+  const txt=document.getElementById("importText").value;
+  const lines=txt.trim().split("\n");let tl=S.activeLayerId;pushUndo();
+  for(const line of lines){const tr=line.trim();if(!tr||tr.startsWith("#"))continue;
+    if(tr.toLowerCase().startsWith("layer:")){const n=tr.slice(6).trim();const f=S.layers.find(l=>l.name.toLowerCase()===n.toLowerCase());if(f)tl=f.id;continue}
+    const p=tr.split(",").map(s=>s.trim());
+    if(p[0]==="wire"&&p.length>=5){const coords=[];let i=1;while(i+1<p.length&&!isNaN(+p[i])&&!isNaN(+p[i+1])){coords.push({x:+p[i],y:+p[i+1]});i+=2}const label=p.slice(i).join(",")||"";if(coords.length>=2){const c=S.circuits.find(c=>c.id===S.activeCircuitId);const L=S.layers.find(l=>l.id===tl);if(L)L.items.push({id:uid(),type:"wire",points:coords,circuitId:S.activeCircuitId,circuitName:label||c?.name||"",color:c?.color||"#facc15",label:""})}}
+    else if(p.length>=5){const[type,x,y,w,h,...rest]=p;const label=rest.join(",");const L=S.layers.find(l=>l.id===tl);if(L){if(type==="rect"||type==="ellipse")L.items.push({id:uid(),type,x:+x,y:+y,w:+w,h:+h,label});else if(type==="line")L.items.push({id:uid(),type:"line",x:+p[1],y:+p[2],x2:+p[3],y2:+p[4],label:p[5]||""})}}
+    else if(p.length>=3&&isNaN(+p[0])){const L=S.layers.find(l=>l.id===tl);if(L)L.items.push({id:uid(),type:"text",x:+p[1],y:+p[2],text:p[0],fontSize:14,label:""})}}
+  commitUndo();document.querySelector(".modal-bg")?.remove();render();
+}
+
+function showHelpModal(){
+  const d=document.createElement("div");d.className="modal-bg";d.onclick=e=>{if(e.target===d)d.remove()};
+  d.innerHTML=`<div class="modal" style="width:500px" onclick="event.stopPropagation()">
+    <h3>Help</h3>
+    <div style="color:#cbd5e1;font-size:12px;line-height:2">
+      <div><kbd>Ctrl+Z</kbd> Undo &nbsp; <kbd>Ctrl+Y</kbd> Redo</div>
+      <div><kbd>Ctrl+C</kbd> Copy &nbsp; <kbd>Ctrl+V</kbd> Paste (item or clipboard image)</div>
+      <div><kbd>V</kbd> Select <kbd>R</kbd> Rect <kbd>O</kbd> Ellipse <kbd>L</kbd> Line <kbd>T</kbd> Text <kbd>W</kbd> Wire</div>
+      <div><kbd>G</kbd> Grid <kbd>Del</kbd> Delete <kbd>Esc</kbd> Cancel <kbd>Scroll</kbd> Zoom <kbd>Alt+Drag</kbd> Pan</div>
+      <div><kbd>↑</kbd> <kbd>↓</kbd> Cycle grid scale (coarse ↔ fine) &nbsp; <kbd>Shift</kbd> Ortho lock (lines)</div>
+    </div>
+    <div style="margin-top:8px;color:var(--mut);font-size:12px;line-height:1.6">
+      <strong>Naming:</strong> Select any item, use the Name field in Properties.<br>
+      <strong>Copy/Paste:</strong> Ctrl+C copies selected item, Ctrl+V pastes offset by 20px. If no item is copied, Ctrl+V pastes a clipboard image as the background.<br>
+      <strong>Rotation:</strong> Select a rect/preset/ellipse and use the Rotate field in Properties. Quick buttons for +90°, +45°, -90°, and reset to 0°. Hit testing and rendering both respect rotation.<br>
+      <strong style="color:var(--acc)">Ortho Lock:</strong> Hold Shift while drawing or dragging line endpoints to constrain to horizontal or vertical.<br>
+      <strong style="color:var(--acc)">Grid Scale:</strong> Use ↑/↓ arrow keys or the −/+ buttons next to "Grid:" in the toolbar to cycle through 6 presets from coarse (whole-house) to fine (inch-level). Scale panel has full controls.<br>
+      <strong>Layer Transfer:</strong> Use the Layer dropdown in Properties, or drag items from the browser onto a different layer header.<br>
+      <strong>Layer Order:</strong> ▲/▼ arrows reorder layers and items within layers.<br>
+      <strong style="color:var(--grn)">Buffer Zones:</strong> Toggle ↔ Buffer. Default 3", adjustable 1-24". Red = overlap. Per-item override in Properties.<br>
+      <strong style="color:#ff6b6b">Calibrate:</strong> Draw on a known distance, enter measurement, background auto-scales.<br>
+      <strong>Grid Origin:</strong> In Scale panel, "Anchor to Selected" sets grid 0,0 to a selected item's corner.<br>
+      <strong>Grid Lines:</strong> In feet mode, major lines every 5'. In inches mode, major lines every 12" (1 foot).<br>
+      <strong style="color:var(--wrn)">Presets:</strong> Furniture, Doors/Windows, and Electrical categories with standard sizes.<br>
+      <strong>Touch:</strong> Single finger now uses the active tool. In Select mode, drag items with one finger, tap empty space to clear selection, and use two fingers to pan/zoom.
+    </div>
+    <button class="mbtn" onclick="this.closest('.modal-bg').remove()">Got it</button>
+  </div>`;
+  document.body.appendChild(d);
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+function initCanvas(){
+  const wrap=document.getElementById("canvasWrap");
+  const ro=new ResizeObserver(entries=>{for(const e of entries){canvasW=e.contentRect.width;canvasH=e.contentRect.height;draw()}});
+  ro.observe(wrap);
+  cv.addEventListener("mousedown",onDown);cv.addEventListener("mousemove",onMove);cv.addEventListener("mouseup",onUp);cv.addEventListener("mouseleave",onUp);
+  cv.addEventListener("wheel",onWheel,{passive:false});cv.addEventListener("dblclick",onDblClick);
+
+  // ── Touch support ──
+  // Single-finger touch starts exactly under your finger, then switches to an offset cursor once you move.
+  // Two fingers use a stable pinch anchor so zooming does not jump when contact changes.
+  let touchState=null, pinchState=null;
+  const TOUCH_OFFSET_X=22, TOUCH_OFFSET_Y=-78, TOUCH_OFFSET_TRIGGER=10;
+  const clearTouchPointer=()=>{touchPointer.active=false};
+  const touchEvt=(t,useOffset=false)=>({
+    preventDefault(){},
+    button:0,
+    altKey:false,
+    clientX:t.clientX+(useOffset?TOUCH_OFFSET_X:0),
+    clientY:t.clientY+(useOffset?TOUCH_OFFSET_Y:0),
+    target:cv,
+    currentTarget:cv
+  });
+  const updateTouchPointer=(raw,proxy,active=true)=>{
+    const r=cv.getBoundingClientRect();
+    touchPointer={active,fingerX:raw.clientX-r.left,fingerY:raw.clientY-r.top,targetX:proxy.clientX-r.left,targetY:proxy.clientY-r.top};
+  };
+  const beginPinch=(ts)=>{
+    const mid={x:(ts[0].clientX+ts[1].clientX)/2,y:(ts[0].clientY+ts[1].clientY)/2};
+    const dist=Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
+    const r=cv.getBoundingClientRect();
+    const sx=mid.x-r.left, sy=mid.y-r.top;
+    pinchState={
+      startDist:Math.max(dist,1),
+      startZoom:S.zoom,
+      anchorWorld:{x:(sx-S.pan.x)/S.zoom,y:(sy-S.pan.y)/S.zoom}
+    };
+    touchState={mode:"pinch",ignoreSingleUntilRelease:ts.length<2?true:false};
+    isPanning=false; panStart=null;
+    clearTouchPointer();
+  };
+
+  cv.addEventListener("touchstart",e=>{
+    e.preventDefault();
+    const ts=e.touches;
+    if(ts.length===2){
+      beginPinch(ts);
+      draw();
+      return;
+    }
+    if(ts.length!==1)return;
+    const t=ts[0], rawProxy=touchEvt(t,false);
+    const r=cv.getBoundingClientRect();
+    const sx=rawProxy.clientX-r.left,sy=rawProxy.clientY-r.top;
+    const pos=s2w(sx,sy);
+    const hit=hitTest(pos.x,pos.y);
+    const selectBlankPan=(S.tool==="select" && !hit);
+    touchState={mode:selectBlankPan?"pan":"tool",startClientX:t.clientX,startClientY:t.clientY,lastTouch:t,moved:false,useOffset:false,ignoreSingleUntilRelease:false};
+    if(selectBlankPan){
+      isPanning=true;
+      panStart={x:t.clientX-S.pan.x,y:t.clientY-S.pan.y};
+      clearTouchPointer();
+      return;
+    }
+    clearTouchPointer();
+    onDown(rawProxy);
+    draw();
+  },{passive:false});
+
+  cv.addEventListener("touchmove",e=>{
+    e.preventDefault();
+    const ts=e.touches;
+    if(ts.length===2){
+      if(touchState?.mode!=="pinch"){
+        if(touchState?.mode==="tool")onUp();
+        beginPinch(ts);
+      }
+      const mid={x:(ts[0].clientX+ts[1].clientX)/2,y:(ts[0].clientY+ts[1].clientY)/2};
+      const dist=Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
+      const nz=Math.max(.1,Math.min(8,pinchState.startZoom*(dist/pinchState.startDist)));
+      const r=cv.getBoundingClientRect();
+      const sx=mid.x-r.left, sy=mid.y-r.top;
+      S.zoom=nz;
+      S.pan.x=sx-pinchState.anchorWorld.x*nz;
+      S.pan.y=sy-pinchState.anchorWorld.y*nz;
+      draw();
+      return;
+    }
+    if(ts.length!==1 || !touchState)return;
+    if(touchState.ignoreSingleUntilRelease){clearTouchPointer(); return;}
+    const t=ts[0];
+    const moveDist=Math.hypot(t.clientX-touchState.startClientX,t.clientY-touchState.startClientY);
+    if(moveDist>8)touchState.moved=true;
+    touchState.lastTouch=t;
+    if(touchState.mode==="pan"){
+      if(!isPanning){isPanning=true;panStart={x:t.clientX-S.pan.x,y:t.clientY-S.pan.y};}
+      S.pan.x=t.clientX-panStart.x;
+      S.pan.y=t.clientY-panStart.y;
+      draw();
+      return;
+    }
+    touchState.useOffset = touchState.useOffset || moveDist>TOUCH_OFFSET_TRIGGER;
+    const proxy=touchEvt(t,touchState.useOffset);
+    if(touchState.useOffset)updateTouchPointer(t,proxy,true); else clearTouchPointer();
+    onMove(proxy);
+    draw();
+  },{passive:false});
+
+  cv.addEventListener("touchend",e=>{
+    e.preventDefault();
+    if(touchState?.mode==="pinch" && e.touches.length===1){
+      touchState.ignoreSingleUntilRelease=true;
+      clearTouchPointer();
+      draw();
+      return;
+    }
+    if(touchState?.mode==="tool" && touchState.lastTouch){
+      const proxy=touchEvt(touchState.lastTouch,!!touchState.useOffset);
+      onUp(proxy);
+    }else if(touchState?.mode==="pan"){
+      isPanning=false;
+      panStart=null;
+      if(!touchState.moved && S.tool==="select"){S.selectedId=null;render();}
+    }
+    if(e.touches.length===0){
+      touchState=null;
+      pinchState=null;
+      clearTouchPointer();
+      draw();
+    }
+  },{passive:false});
+
+  loadAutosave();
+  lastSnap=snapState();
+  render();
+}
+initCanvas();
+</script>
+</body>
+</html>
